@@ -9,45 +9,80 @@ These instructions will get you a copy of the project up and running on your loc
 Before you start, ensure you meet the following requirements:
 
 - You have installed the latest version of [Python](https://www.python.org/downloads/)
-- Obtain APIKey from Scopus and InstToken from your respective Institution
+- Obtain APIKey from Scopus and InstToken from [Scopus](https://pybliometrics.readthedocs.io/en/stable/access.html)
 
 ### Installing
 
 1. Clone the repository:
 
-```sh
-git clone https://github.com/jhelal/snowlit.git
-```
+   ```sh
+   git clone https://github.com/jhelal/snowlit.git
+   ```
 
 2. Change the working directory:
 
-```sh
-cd snowlit
-```
+   ```sh
+   cd snowlit
+   ```
 
-3. Install the requirements:
+3. Create a virtual environment and activate it:
 
-```sh
-pip install -r requirements.txt
-```
+   ```
+   python3 -m venv env
+
+   source env/bin/activate  # On Windows use `env\Scripts\activate`
+   ```
+
+4. Install the requirements:
+
+   ```sh
+   pip install -r requirements.txt
+   ```
 
 ### Running the application
 
-1. Run main.py python file
+1. Run `main.py` python file
 
-2. In your terminal you will be requested to enter your APIKey and InstToken when you are running the application for the first time
+   ```sh
+   python3 main.py
+   ```
 
-3. Output ppt file will be generated in assets folder under the name output_presentation.pptx
+2. Follow the instructions from the terminal
 
-### Folder Structure
+Based on the options you choose:
 
-### Known Issues
+- Scoups query search results will be stored at `search_results/<QUERY_ID>_<QUERY_NAME>/csv/scoups_results.csv`
+- Forward snowball results will be stored at `search_results/<QUERY_ID>_<QUERY_NAME>/csv/forward_snowball_results.csv`
+- Backward snowball results will be stored at `search_results/<QUERY_ID>_<QUERY_NAME>/csv/backward_snowball_results.csv`
+- All the images of plot will be stored at `search_results/<QUERY_ID>_<QUERY_NAME>/plots`
+- PPT will be generated and stored at `search_results/<QUERY_ID>_<QUERY_NAME>/snowlit_plots.pptx`
+- Results log will be stored at `search_results/results_log.csv`
 
-[See issues here](https://github.com/jhelal/snowlit/issues)
+## Folder Structure
 
-### Contact
-
+```py
+.
+├── README.md # Documentation for the project
+├── assets # Contains static files and resources used in the project
+│ └── template.pptx
+├── main.py # Main file to run the application
+├── plots.py # Helper utility file to generate plots
+├── ppt_generation.py # Generates pptx from the generated plots
+├── requirements.txt
+├── scopus.py # Scopus API functions
+└── utils.py
 ```
+
+## Known Issues
+
+See issues [here](https://github.com/jhelal/snowlit/issues)
+
+## Found a Bug?
+
+Create an issue [here](https://github.com/jhelal/snowlit/issues/new/choose)
+
+## Contact
+
 James Helal
+
 jameshelal@gmail.com
-```
