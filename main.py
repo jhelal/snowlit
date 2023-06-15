@@ -1,32 +1,180 @@
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
 from pybliometrics.scopus import utils
 from scopus import search, backward_snowballing, forward_snowballing
-from plots import (
-    plot_abstracts_wordcloud,
-    plot_cumulative_documents_by_year,
-    plot_documents_by_affiliation,
-    plot_documents_by_author,
-    plot_documents_by_continent,
-    plot_documents_by_country,
-    plot_documents_by_source,
-    plot_documents_by_type,
-    plot_documents_by_year,
-    plot_documents_by_year_and_source,
-    plot_titles_wordcloud,
-    plot_top_cited_documents,
-    plot_total_documents,
-)
+
+
+from plots import Plotter
 from ppt_generation import generate_ppt_from_plots
 import pandas as pd
-from utils import PLOTS_DIR, CSV_RESULTS_DIR
-import warnings
+from utils import RESULTS_LOG_FILE_PATH, SEARCH_RESULTS_DIR, delete_all_in_dir
 
 
-def init():
-    PLOTS_DIR.mkdir(parents=True, exist_ok=True)
-    CSV_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+class QueryStatus(Enum):
+    NEW = "New"
+    RUNNING = "Running"
+    COMPLETED = "Completed"
+    FAILED = "Failed"
 
-    warnings.filterwarnings("ignore", category=DeprecationWarning)
-    init_pybliometrics()
+
+class SnowLit:
+    def __init__(self, query: str, **options) -> None:
+        self.query: str = query
+        SEARCH_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+
+        self.log: pd.DataFrame = self.get_log()
+        self.init_query()
+
+        self.run_query(**options)
+
+    # def __del__(self):
+    #     # save the log after each query
+    #     self.save_log()
+
+    def get_log(self):
+        if not RESULTS_LOG_FILE_PATH.exists():
+            self.log = pd.DataFrame(
+                columns=[
+                    "id",
+                    "query",
+                    "results_directory",
+                    "last_run_timestamp",
+                    "status",
+                ]
+            )
+            self.save_log()
+
+        return pd.read_csv(RESULTS_LOG_FILE_PATH)
+
+    def save_log(self):
+        self.log.to_csv(RESULTS_LOG_FILE_PATH, index=False)
+
+    def init_query(self):
+        existing_row = self.log[self.log["query"] == self.query]
+        if not existing_row.empty:
+            # The query exists in the DataFrame, return the row
+            self.results_dir = Path(existing_row["results_directory"].values[0])
+            force = take_input_as_bool(
+                "\nQuery Results already exists, do you want regenerate all assets? (y/n): "
+            )
+
+            if force:
+                delete_all_in_dir(self.results_dir)
+
+        else:
+            # The query does not exist, so we create a new directory and a new row in the DataFrame
+
+            query_id = len(self.log) + 1
+
+            # Create a new directory for the results
+            self.results_dir = SEARCH_RESULTS_DIR / f"{query_id}_{hash(self.query)}"
+            self.results_dir.mkdir(parents=True, exist_ok=True)
+
+            new_row = {
+                "id": query_id,  # Assigning the next available ID
+                "query": self.query,
+                "results_directory": self.results_dir.absolute(),
+                "last_run_timestamp": datetime.now(),
+                "status": QueryStatus.NEW,  # Status is set as 'New' for a new query
+            }
+
+            self.log = self.log.append(new_row, ignore_index=True)
+            self.save_log()
+
+        # Create a new directory for the plots
+        (self.results_dir / "plots").mkdir(parents=True, exist_ok=True)
+
+    def update_status(self, status):
+        self.log.loc[self.log["query"] == self.query, "status"] = status
+        self.log.loc[
+            self.log["query"] == self.query, "last_run_timestamp"
+        ] = datetime.now()
+
+        self.save_log()
+
+    def run_query(
+        self,
+        *,
+        forward_snowball=True,
+        backward_snowball=False,
+        generate_visualization=True,
+        **kwargs,
+    ):
+        """
+        Run the query and perform snowballing if required.
+
+        Args:
+            forward_snowball (bool, optional): Whether to perform forward snowballing. Defaults to True.
+            backward_snowball (bool, optional): Whether to perform backward snowballing. Defaults to False.
+            generate_visualization (bool, optional): Whether to generate plots and PowerPoint presentation. Defaults to True.
+            force (bool, optional): Whether to force the query to run even if the results already exist. Defaults to False.
+
+
+        """
+
+        self.update_status("Running")
+
+        results_path = self.results_dir / "scopus_results.csv"
+        forward_snowball_path = self.results_dir / "forward_snowball_results.csv"
+        backward_snowball_path = self.results_dir / "backward_snowball_results.csv"
+
+        print("\nPerforming query search...")
+        if not results_path.exists():
+            df = search(self.query)
+            df.to_csv(results_path, index=False)
+
+            print("New search performed and results exported to ", results_path)
+        else:
+            print("results for query already exists, using existing results...")
+            df = pd.read_csv(results_path)
+
+        if generate_visualization:
+            print("\n\nGenerating plots for scopus results...")
+
+            # Generate plots in the plots directory
+            self.generate_plots(df)
+
+            # Generate PowerPoint presentation
+            generate_ppt_from_plots(self.results_dir)
+
+        if forward_snowball:
+            print("\n\nPerforming forward snowballing...")
+            if not forward_snowball_path.exists():
+                # Perform forward snowballing
+                forward_snowballing(df[:10], forward_snowball_path)
+                print(
+                    "Forward snowballing results exported to forward_snowballing_results.csv"
+                )
+            else:
+                print("Forward snowballing results already exist, skipping...")
+
+        if backward_snowball:
+            print("\n\nPerforming backward snowballing...")
+            if not backward_snowball_path.exists():
+                # Perform backward snowballing
+                backward_snowballing(df[:10], backward_snowball_path)
+                print(
+                    "Backward snowballing results exported to backward_snowballing_results.csv"
+                )
+            else:
+                print("Backward snowballing results already exist, skipping...")
+
+    def generate_plots(self, df):
+        plotter = Plotter(self.results_dir)
+        plotter.plot_total_documents(df)
+        plotter.plot_documents_by_year(df)
+        plotter.plot_cumulative_documents_by_year(df)
+        plotter.plot_documents_by_source(df)
+        plotter.plot_documents_by_year_and_source(df)
+        plotter.plot_documents_by_affiliation(df)
+        plotter.plot_documents_by_country(df)
+        plotter.plot_documents_by_continent(df)
+        plotter.plot_documents_by_type(df)
+        plotter.plot_documents_by_author(df)
+        plotter.plot_top_cited_documents(df)
+        plotter.plot_abstracts_wordcloud(df)
+        plotter.plot_titles_wordcloud(df)
 
 
 def init_pybliometrics():
@@ -40,85 +188,45 @@ def init_pybliometrics():
     utils.create_config()
 
 
-def generate_plot(df):
-    plot_total_documents(df)
-    plot_documents_by_year(df)
-    plot_cumulative_documents_by_year(df)
-    plot_documents_by_source(df)
-    plot_documents_by_year_and_source(df)
-    plot_documents_by_affiliation(df)
-    plot_documents_by_country(df)
-    plot_documents_by_continent(df)
-    plot_documents_by_type(df)
-    plot_documents_by_author(df)
-    plot_top_cited_documents(df)
-    plot_abstracts_wordcloud(df)
-    plot_titles_wordcloud(df)
+def take_input_as_bool(prompt: str) -> bool:
+    """
+    Take user input as a boolean value.
+
+    Args:
+        prompt (str): The prompt to display to the user.
+
+    Returns:
+        bool: The boolean value entered by the user.
+    """
+    while True:
+        try:
+            return {"y": True, "n": False}[input(prompt).lower()]
+        except KeyError:
+            print("Invalid input, please enter 'y' or 'n'.")
 
 
-def main(
-    query,
-    *,
-    forward_snowball=True,
-    backward_snowball=False,
-    generate_visualization=True,
-):
-    init()
+def main():
+    init_pybliometrics()
 
-    results_path = CSV_RESULTS_DIR / "scopus_results.csv"
-    forward_snowball_path = CSV_RESULTS_DIR / "forward_snowball_results.csv"
-    backward_snowball_path = CSV_RESULTS_DIR / "backward_snowball_results.csv"
+    query = input("\n\nEnter your query: ")
 
-    print("\nPerforming query search...")
-    if results_path.exists():
-        df = pd.read_csv(results_path)
-    else:
-        df = search(query)
+    forward_snowball = take_input_as_bool("\nPerform forward snowballing? (y/n): ")
+    backward_snowball = take_input_as_bool("\nPerform backward snowballing? (y/n): ")
+    generate_visualization = take_input_as_bool(
+        "\nGenerate plots and PowerPoint presentation? (y/n): "
+    )
 
-    # Export the results to a CSV file
-    if not results_path.exists():
-        df.to_csv(results_path, index=False)
-        print("New search performed and results exported to ", results_path)
-    else:
-        print("results for query already exists, using existing results...")
-
-    if not forward_snowball and not backward_snowball:
-        return
-
-    if forward_snowball:
-        print("\n\nPerforming forward snowballing...")
-        if not forward_snowball_path.exists():
-            # Perform forward snowballing
-            forward_snowballing(df[:10], forward_snowball_path)
-            print(
-                "Forward snowballing results exported to forward_snowballing_results.csv"
-            )
-        else:
-            print("Forward snowballing results already exist, skipping...")
-
-    if backward_snowball:
-        print("\n\nPerforming backward snowballing...")
-        if not backward_snowball_path.exists():
-            # Perform backward snowballing
-            backward_snowballing(df[:10], backward_snowball_path)
-            print(
-                "Backward snowballing results exported to backward_snowballing_results.csv"
-            )
-        else:
-            print("Backward snowballing results already exist, skipping...")
-
-    if generate_visualization:
-        print("\n\nGenerating plots...")
-
-        # Generate plots
-        generate_plot(df)
-
-        # Generate PowerPoint presentation
-        generate_ppt_from_plots()
+    SnowLit(
+        query,
+        forward_snowball=forward_snowball,
+        backward_snowball=backward_snowball,
+        generate_visualization=generate_visualization,
+    )
 
 
-query = (
-    "(TITLE-ABS-KEY((LCA OR life cycle assessment OR life cycle analysis OR whole life carbon assessment OR "
-    "embodied) AND structur* AND (building* OR infrastructure)))"
-)
-main(query, forward_snowball=True, backward_snowball=True, generate_visualization=True)
+if __name__ == "__main__":
+    main()
+
+query = "(TITLE-ABS-KEY((LCA OR life cycle assessment OR life cycle analysis OR whole life carbon assessment OR embodied) AND structur* AND (building* OR infrastructure)))"
+
+# main(query, forward_snowball=True, backward_snowball=True, generate_visualization=True)

@@ -1,9 +1,10 @@
 import os
 from os import path
+from pathlib import Path
 from pptx import Presentation
 from pptx.util import Inches, Cm
 
-from utils import PLOTS_DIR, ASSETS_DIR
+from utils import ASSETS_DIR
 
 
 def add_image_slide(prs, img_path):
@@ -44,20 +45,20 @@ def add_image_slide(prs, img_path):
     image.top = top + Inches(0.5)
 
 
-def generate_ppt_from_plots():
-    pptx_path = ASSETS_DIR / "output_presentation.pptx"
+def generate_ppt_from_plots(results_dir: Path):
+    pptx_path = results_dir / "snowlit_plots.pptx"
     if pptx_path.exists():
         print("Plots are already exported at", pptx_path, "skipping...")
         return
 
     # Create presentation
     prs = Presentation(ASSETS_DIR / "template.pptx")
-
+    plots_dir = results_dir / "plots"
     # Get a sorted list of all .png files in the directory, sorted by creation time
     files = sorted(
         (
-            PLOTS_DIR / filename
-            for filename in os.listdir(PLOTS_DIR)
+            results_dir / "plots" / filename
+            for filename in os.listdir(plots_dir)
             if filename.endswith(".png")
         ),
         key=os.path.getctime,
