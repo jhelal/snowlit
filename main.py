@@ -8,7 +8,12 @@ from scopus import search, backward_snowballing, forward_snowballing
 from plots import Plotter
 from ppt_generation import generate_ppt_from_plots
 import pandas as pd
-from utils import RESULTS_LOG_FILE_PATH, SEARCH_RESULTS_DIR, delete_all_in_dir
+from utils import (
+    RESULTS_LOG_FILE_PATH,
+    SEARCH_RESULTS_DIR,
+    delete_all_in_dir,
+    take_input_as_bool,
+)
 
 
 class QueryStatus(Enum):
@@ -21,6 +26,7 @@ class QueryStatus(Enum):
 class SnowLit:
     def __init__(self, query: str, **options) -> None:
         self.query: str = query
+
         SEARCH_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
         self.log: pd.DataFrame = self.get_log()
@@ -28,15 +34,12 @@ class SnowLit:
 
         self.run_query(**options)
 
-    # def __del__(self):
-    #     # save the log after each query
-    #     self.save_log()
-
     def get_log(self):
         if not RESULTS_LOG_FILE_PATH.exists():
             self.log = pd.DataFrame(
                 columns=[
                     "id",
+                    "query_name",
                     "query",
                     "results_directory",
                     "last_run_timestamp",
@@ -64,15 +67,19 @@ class SnowLit:
 
         else:
             # The query does not exist, so we create a new directory and a new row in the DataFrame
+            query_name = input(
+                "\nEnter a name for your query (this will be used in results directory name): "
+            ).strip()
 
             query_id = len(self.log) + 1
 
             # Create a new directory for the results
-            self.results_dir = SEARCH_RESULTS_DIR / f"{query_id}_{hash(self.query)}"
+            self.results_dir = SEARCH_RESULTS_DIR / f"{query_id}_{query_name}"
             self.results_dir.mkdir(parents=True, exist_ok=True)
 
             new_row = {
                 "id": query_id,  # Assigning the next available ID
+                "query_name": query_name,
                 "query": self.query,
                 "results_directory": self.results_dir.absolute(),
                 "last_run_timestamp": datetime.now(),
@@ -113,11 +120,14 @@ class SnowLit:
 
         """
 
-        self.update_status("Running")
+        self.update_status(QueryStatus.RUNNING)
 
-        results_path = self.results_dir / "scopus_results.csv"
-        forward_snowball_path = self.results_dir / "forward_snowball_results.csv"
-        backward_snowball_path = self.results_dir / "backward_snowball_results.csv"
+        csv_dir = self.results_dir / "csv"
+        csv_dir.mkdir(parents=True, exist_ok=True)
+
+        results_path = csv_dir / "scopus_results.csv"
+        forward_snowball_path = csv_dir / "forward_snowball_results.csv"
+        backward_snowball_path = csv_dir / "backward_snowball_results.csv"
 
         print("\nPerforming query search...")
         if not results_path.exists():
@@ -160,6 +170,8 @@ class SnowLit:
             else:
                 print("Backward snowballing results already exist, skipping...")
 
+        self.update_status(QueryStatus.COMPLETED)
+
     def generate_plots(self, df):
         plotter = Plotter(self.results_dir)
         plotter.plot_total_documents(df)
@@ -188,27 +200,10 @@ def init_pybliometrics():
     utils.create_config()
 
 
-def take_input_as_bool(prompt: str) -> bool:
-    """
-    Take user input as a boolean value.
-
-    Args:
-        prompt (str): The prompt to display to the user.
-
-    Returns:
-        bool: The boolean value entered by the user.
-    """
-    while True:
-        try:
-            return {"y": True, "n": False}[input(prompt).lower()]
-        except KeyError:
-            print("Invalid input, please enter 'y' or 'n'.")
-
-
 def main():
     init_pybliometrics()
 
-    query = input("\n\nEnter your query: ")
+    query = input("\n\nEnter your query: ").strip()
 
     forward_snowball = take_input_as_bool("\nPerform forward snowballing? (y/n): ")
     backward_snowball = take_input_as_bool("\nPerform backward snowballing? (y/n): ")
@@ -226,7 +221,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-query = "(TITLE-ABS-KEY((LCA OR life cycle assessment OR life cycle analysis OR whole life carbon assessment OR embodied) AND structur* AND (building* OR infrastructure)))"
-
-# main(query, forward_snowball=True, backward_snowball=True, generate_visualization=True)
