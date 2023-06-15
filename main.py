@@ -152,7 +152,7 @@ class SnowLit:
             print("\n\nPerforming forward snowballing...")
             if not forward_snowball_path.exists():
                 # Perform forward snowballing
-                forward_snowballing(df[:10], forward_snowball_path)
+                forward_snowballing(df, forward_snowball_path)
                 print(
                     "Forward snowballing results exported to forward_snowballing_results.csv"
                 )
@@ -163,7 +163,7 @@ class SnowLit:
             print("\n\nPerforming backward snowballing...")
             if not backward_snowball_path.exists():
                 # Perform backward snowballing
-                backward_snowballing(df[:10], backward_snowball_path)
+                backward_snowballing(df, backward_snowball_path)
                 print(
                     "Backward snowballing results exported to backward_snowballing_results.csv"
                 )
