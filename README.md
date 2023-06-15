@@ -49,14 +49,14 @@ Before you start, ensure you meet the following requirements:
 
 2. Follow the instructions from the terminal
 
-Based on the options you choose:
+   Based on the options you choose:
 
-- Scoups query search results will be stored at `search_results/<QUERY_ID>_<QUERY_NAME>/csv/scoups_results.csv`
-- Forward snowball results will be stored at `search_results/<QUERY_ID>_<QUERY_NAME>/csv/forward_snowball_results.csv`
-- Backward snowball results will be stored at `search_results/<QUERY_ID>_<QUERY_NAME>/csv/backward_snowball_results.csv`
-- All the images of plot will be stored at `search_results/<QUERY_ID>_<QUERY_NAME>/plots`
-- PPT will be generated and stored at `search_results/<QUERY_ID>_<QUERY_NAME>/snowlit_plots.pptx`
-- Results log will be stored at `search_results/results_log.csv`
+   - Scopus query search results will be stored at `search_results/<QUERY_ID>_<QUERY_NAME>/csv/scoups_results.csv`
+   - Forward snowball results will be stored at `search_results/<QUERY_ID>_<QUERY_NAME>/csv/forward_snowball_results.csv`
+   - Backward snowball results will be stored at `search_results/<QUERY_ID>_<QUERY_NAME>/csv/backward_snowball_results.csv`
+   - All the images of plot will be stored at `search_results/<QUERY_ID>_<QUERY_NAME>/plots`
+   - PPT will be generated and stored at `search_results/<QUERY_ID>_<QUERY_NAME>/snowlit_plots.pptx`
+   - Results log will be stored at `search_results/results_log.csv`
 
 ## Folder Structure
 
