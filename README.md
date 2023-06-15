@@ -9,7 +9,7 @@ These instructions will get you a copy of the project up and running on your loc
 Before you start, ensure you meet the following requirements:
 
 - You have installed the latest version of [Python](https://www.python.org/downloads/)
-- Obtain APIKey from Scopus and InstToken from [Scopus](https://pybliometrics.readthedocs.io/en/stable/access.html)
+- Obtain APIKey and InstToken from [Scopus](https://pybliometrics.readthedocs.io/en/stable/access.html)
 
 ### Installing
 
