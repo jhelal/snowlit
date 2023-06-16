@@ -1,41 +1,37 @@
-import os
+from pathlib import Path
+
+# Constants
+ASSETS_DIR = Path("assets")
+
+SEARCH_RESULTS_DIR = Path("search_results")
+
+RESULTS_LOG_FILE_PATH = SEARCH_RESULTS_DIR / "results_log.csv"
 
 
-def save_plot_as_image(plt, image_name):
-    # Define the directory path
-    dir_path = "C:/Users/james/PycharmProjects/lcareview/plots/"
-
-    # Join the directory path and the image name to form the full path
-    full_path = os.path.join(dir_path, image_name)
-
-    # Use get_unique_filename to avoid overwriting existing files
-    unique_full_path = get_unique_filename(full_path)
-
-    # Save the plot as an image at the unique path
-    plt.savefig(unique_full_path, dpi=600)
-
-    # Close the plot to free up memory
-    plt.close()
-
-    # Return the full path of the saved image
-    return unique_full_path
+CSV_RESULTS_DIR = SEARCH_RESULTS_DIR / "csv"
 
 
-def get_unique_filename(filepath):
+def take_input_as_bool(prompt: str) -> bool:
     """
-    Returns a unique file name by appending a number suffix to the given file name.
+    Take user input as a boolean value.
 
     Args:
-        filepath (str): The original file path
+        prompt (str): The prompt to display to the user.
 
     Returns:
-        str: The modified file path if a file with the original name already exists, else the original file path
+        bool: The boolean value entered by the user.
     """
-    filename, extension = os.path.splitext(filepath)
-    counter = 2
+    while True:
+        try:
+            return {"y": True, "n": False}[input(prompt).lower()]
+        except KeyError:
+            print("Invalid input, please enter 'y' or 'n'.")
 
-    while os.path.exists(filepath):
-        filepath = f"{filename}_{counter}{extension}"
-        counter += 1
 
-    return filepath
+def delete_all_in_dir(path):
+    for item in path.rglob("*"):
+        if item.is_file():
+            item.unlink()  # Removes the file
+        elif item.is_dir():
+            delete_all_in_dir(item)  # Recursively deletes the contents of the directory
+            item.rmdir()  # Removes the directory itself

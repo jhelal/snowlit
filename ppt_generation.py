@@ -1,7 +1,10 @@
 import os
+from os import path
+from pathlib import Path
 from pptx import Presentation
 from pptx.util import Inches, Cm
 
+from utils import ASSETS_DIR
 
 
 def add_image_slide(prs, img_path):
@@ -13,14 +16,16 @@ def add_image_slide(prs, img_path):
     title_placeholder = slide.shapes.title
 
     # Set the title to the image name (without the extension)
-    image_name = os.path.splitext(os.path.basename(img_path))[0]  # This gets the file name without the extension
+    image_name = path.splitext(path.basename(img_path))[
+        0
+    ]  # This gets the file name without the extension
 
     # Format the image name: replace underscores with spaces and capitalize each word
-    title_text = ' '.join(word.capitalize() for word in image_name.split('_'))
+    title_text = " ".join(word.capitalize() for word in image_name.split("_"))
     title_placeholder.text = title_text
 
     # Load image
-    with open(img_path, 'rb') as image_stream:
+    with open(img_path, "rb") as image_stream:
         image = slide.shapes.add_picture(image_stream, 0, 0)
 
     # Set a maximum height for the image and maintain the aspect ratio
@@ -40,17 +45,23 @@ def add_image_slide(prs, img_path):
     image.top = top + Inches(0.5)
 
 
-def generate_ppt_from_directory():
-    # Define directory path
-    dir_path = "C:/Users/james/PycharmProjects/lcareview/plots/"
+def generate_ppt_from_plots(results_dir: Path):
+    pptx_path = results_dir / "snowlit_plots.pptx"
+    if pptx_path.exists():
+        print("Plots are already exported at", pptx_path, "skipping...")
+        return
 
     # Create presentation
-    prs = Presentation(r'C:\Users\james\PycharmProjects\lcareview\assets\template.pptx')
-
+    prs = Presentation(ASSETS_DIR / "template.pptx")
+    plots_dir = results_dir / "plots"
     # Get a sorted list of all .png files in the directory, sorted by creation time
     files = sorted(
-        (os.path.join(dir_path, filename) for filename in os.listdir(dir_path) if filename.endswith(".png")),
-        key=os.path.getctime
+        (
+            results_dir / "plots" / filename
+            for filename in os.listdir(plots_dir)
+            if filename.endswith(".png")
+        ),
+        key=os.path.getctime,
     )
 
     # Loop over each file in the sorted list
@@ -58,4 +69,7 @@ def generate_ppt_from_directory():
         add_image_slide(prs, full_path)  # add slide with the image
 
     # Save the presentation
-    prs.save('output_presentation.pptx')
+
+    prs.save(pptx_path)
+
+    print("All plots have been exported at ", pptx_path, " successfully!")

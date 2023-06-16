@@ -1,902 +1,1046 @@
+from pathlib import Path
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import gensim
-from gensim import corpora
-from wordcloud import WordCloud
 import seaborn as sns
-import re
-import pycountry
+import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter
+import pandas as pd
 import pycountry_convert as pc
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
-from utils import save_plot_as_image
+import pycountry
+from wordcloud import WordCloud
 
 
-def plot_total_documents(df):
-    """
-    Reads the dataframe of a Scopus CSV file and plots a bar chart of total documents.
+class Plotter:
+    def __init__(self, results_dir: Path) -> None:
+        self.results_dir = results_dir
 
-    Args:
-    df (pandas.DataFrame): DataFrame of the Scopus data.
+    def save_plot_as_image(self, plt, image_name):
+        # Define the directory path
 
-    Returns:
-    None
-    """
+        # Join the directory path and the image name to form the full path
+        image_path = self.results_dir / "plots" / image_name
+        if image_path.exists():
+            return
 
-    total_publications = len(df)  # total number of documents
+        # Save the plot as an image at the unique path
+        plt.savefig(image_path.absolute(), dpi=600)
 
-    sns.set_style("whitegrid")  # Set the seaborn style to "whitegrid" for easier viewing
+        # Close the plot to free up memory
+        plt.close()
 
-    # Create a larger figure to make the bar thinner
-    # plt.figure(figsize=(3, 6))
+        print("plot generated at: ", image_path)
 
-    # Create a bar plot with 'blue' color
-    ax = sns.barplot(x=["Total Publications"], y=[total_publications], color='#276196')
+    def plot_total_documents(self, df):
+        """
+        Reads the DataFrame of a Scopus data and plots a bar chart of total documents.
 
-    plt.title('Total Number of Documents')
-    plt.ylabel('Number of Documents')
+        Args:
+        df (pandas.DataFrame): DataFrame of the Scopus data.
 
-    # Adjust the plot layout to make sure nothing is cropped
-    plt.tight_layout()
+        Returns:
+        None
+        """
 
-    # Add the total number of documents above the bar
-    ax.text(0, total_publications, total_publications, color='black', ha="center")
+        total_publications = len(df)  # total number of documents
 
-    # Save the figure to a PNG file
-    save_plot_as_image(plt, 'total_documents.png')
+        sns.set_style(
+            "whitegrid"
+        )  # Set the seaborn style to "whitegrid" for easier viewing
 
+        # Create a larger figure to make the bar thinner
+        # plt.figure(figsize=(3, 6))
 
-def plot_documents_by_year(df):
-    """
-    Reads the dataframe of a Scopus CSV file and plots a bar chart of documents by year using seaborn.
+        # Create a bar plot with 'blue' color
+        ax = sns.barplot(
+            x=["Total Publications"], y=[total_publications], color="#276196"
+        )
 
-    Args:
-    df (pandas.DataFrame): DataFrame of the Scopus data.
+        plt.title("Total Number of Documents")
+        plt.ylabel("Number of Documents")
 
-    Returns:
-    None
-    """
+        # Add the total number of documents above the bar
+        ax.text(0, total_publications, total_publications, color="black", ha="center")
 
-    # Count the number of documents per year
-    doc_counts = df['Year'].value_counts().sort_index()
+        # Adjust the plot layout to make sure nothing is cropped
+        plt.tight_layout()
 
-    # Create a list of all years from the earliest in your data to the latest
-    all_years = np.arange(df['Year'].min(), df['Year'].max() + 1)
+        self.save_plot_as_image(plt, "total_documents.png")
 
-    # Reindex your data to include all years, filling missing years with 0
-    doc_counts_reindexed = doc_counts.reindex(all_years, fill_value=0)
+    def plot_documents_by_year(self, df):
+        """
+        Reads the list of namedtuple records of a Scopus data and plots a bar chart of documents by year using seaborn.
 
-    # Plot the data
-    sns.set_style("whitegrid")  # Set the seaborn style to "whitegrid" for easier viewing
+        Args:
+        records (list of namedtuple): List of records of the Scopus data.
 
-    # Create a bar plot with 'blue' color
-    ax = sns.barplot(x=doc_counts_reindexed.index, y=doc_counts_reindexed.values, color='#276196')
+        Returns:
+        None
+        """
 
-    plt.title('Documents by Year')
-    plt.xlabel('Year')
-    plt.ylabel('Number of Documents')
+        # Extract the year from the 'coverDate' column
+        df["Year"] = df["coverDate"].apply(lambda x: int(x.split("-")[0]))
 
-    # Display every nth label to avoid overlapping
-    n = 2  # change this value to get more or less labels
-    for index, label in enumerate(ax.xaxis.get_ticklabels()):
-        if index % n != 0:
-            label.set_visible(False)
+        # Count the number of documents per year
+        doc_counts = df["Year"].value_counts().sort_index()
 
-    # Rotate the labels to prevent overlap
-    plt.xticks(rotation=45)
+        # Create a list of all years from the earliest in your data to the latest
+        all_years = np.arange(df["Year"].min(), df["Year"].max() + 1)
 
-    # Adjust the plot layout to make sure nothing is cropped
-    plt.tight_layout()
+        # Reindex your data to include all years, filling missing years with 0
+        doc_counts_reindexed = doc_counts.reindex(all_years, fill_value=0)
 
-    output_folder_file_path = r'C:\Users\james\PycharmProjects\lcareview\plots'
+        # Plot the data
+        sns.set_style(
+            "whitegrid"
+        )  # Set the seaborn style to "whitegrid" for easier viewing
 
-    # Save the figure to a PNG file
-    save_plot_as_image(plt, 'documents_per_year.png')
+        # Create a bar plot with 'blue' color
+        ax = sns.barplot(
+            x=doc_counts_reindexed.index, y=doc_counts_reindexed.values, color="#276196"
+        )
 
-    # plt.show()
+        plt.title("Documents by Year")
+        plt.xlabel("Year")
+        plt.ylabel("Number of Documents")
 
+        # Display every nth label to avoid overlapping
+        n = 2  # change this value to get more or less labels
+        for index, label in enumerate(ax.xaxis.get_ticklabels()):
+            if index % n != 0:
+                label.set_visible(False)
 
-def plot_cumulative_documents_by_year(df):
-    """
-    Reads the dataframe of a Scopus CSV file and plots an area chart of cumulative documents by year.
+        # Rotate the labels to prevent overlap
+        plt.xticks(rotation=45)
 
-    Args:
-    df (pandas.DataFrame): DataFrame of the Scopus data.
+        # Adjust the plot layout to make sure nothing is cropped
+        plt.tight_layout()
 
-    Returns:
-    None
-    """
+        self.save_plot_as_image(plt, "documents_per_year.png")
 
-    # Count the number of documents per year
-    doc_counts = df['Year'].value_counts().sort_index()
+    def plot_cumulative_documents_by_year(self, df):
+        """
+        Reads the list of namedtuples and plots an area chart of cumulative documents by year.
 
-    # Create a list of all years from the earliest in your data to the latest
-    all_years = np.arange(df['Year'].min(), df['Year'].max() + 1)
+        Args:
+        data (list of namedtuples): The list of namedtuples returned by ScopusSearch.
 
-    # Reindex your data to include all years, filling missing years with 0
-    doc_counts_reindexed = doc_counts.reindex(all_years, fill_value=0)
+        Returns:
+        None
+        """
 
-    # Calculate the cumulative sum of the documents
-    cumulative_doc_counts = doc_counts_reindexed.cumsum()
+        # Convert the 'coverDate' to datetime format
+        df["coverDate"] = pd.to_datetime(df["coverDate"])
 
-    # Plot the data
-    sns.set_style("whitegrid")  # Set the seaborn style to "whitegrid" for easier viewing
+        # Extract the year and create a new 'Year' column
+        df["Year"] = df["coverDate"].dt.year
 
-    plt.figure(figsize=(10, 6))  # Set the figure size
+        # Count the number of documents per year
+        doc_counts = df["Year"].value_counts().sort_index()
 
-    plt.fill_between(cumulative_doc_counts.index, cumulative_doc_counts.values, color="#276196", alpha=0.8)
-    plt.plot(cumulative_doc_counts.index, cumulative_doc_counts.values, color="#276196", alpha=0.6)
+        # Create a list of all years from the earliest in your data to the latest
+        all_years = np.arange(df["Year"].min(), df["Year"].max() + 1)
 
-    plt.title('Cumulative Documents by Year')
-    plt.xlabel('Year')
-    plt.ylabel('Cumulative Number of Documents')
+        # Reindex your data to include all years, filling missing years with 0
+        doc_counts_reindexed = doc_counts.reindex(all_years, fill_value=0)
 
-    # Set the limits of the x-axis and y-axis
-    plt.xlim(df['Year'].min(), df['Year'].max())
-    plt.ylim(0, cumulative_doc_counts.max()+5)
+        # Calculate the cumulative sum of the documents
+        cumulative_doc_counts = doc_counts_reindexed.cumsum()
 
-    # Rotate the labels to prevent overlap
-    plt.xticks(rotation=45)
+        # Plot the data
+        sns.set_style(
+            "whitegrid"
+        )  # Set the seaborn style to "whitegrid" for easier viewing
 
-    # Adjust the plot layout to make sure nothing is cropped
-    plt.tight_layout()
+        plt.figure(figsize=(10, 6))  # Set the figure size
 
-    # Save the figure to a PNG file
-    save_plot_as_image(plt, 'cumulative_documents_by_year.png')
+        plt.fill_between(
+            cumulative_doc_counts.index,
+            cumulative_doc_counts.values,
+            color="#276196",
+            alpha=0.8,
+        )
+        plt.plot(
+            cumulative_doc_counts.index,
+            cumulative_doc_counts.values,
+            color="#276196",
+            alpha=0.6,
+        )
 
-    # plt.show()
+        plt.title("Cumulative Documents by Year")
+        plt.xlabel("Year")
+        plt.ylabel("Cumulative Number of Documents")
 
+        # Set the limits of the x-axis and y-axis
+        plt.xlim(df["Year"].min(), df["Year"].max())
+        plt.ylim(0, cumulative_doc_counts.max() + 5)
 
-def plot_documents_by_source(df, N):
-    """
-    Reads the dataframe of a Scopus CSV file and plots a bar chart of documents by source.
+        # Rotate the labels to prevent overlap
+        plt.xticks(rotation=45)
 
-    Args:
-    df (pandas.DataFrame): DataFrame of the Scopus data.
-    N (int): The number of sources to display.
+        # Adjust the plot layout to make sure nothing is cropped
+        plt.tight_layout()
 
-    Returns:
-    None
-    """
+        # Save the figure to a PNG file
+        # self.save_plot_as_image(plt, 'cumulative_documents_by_year.png')
 
-    # Filter to include only the top 20 sources based on document count
-    top_sources = df['Source title'].value_counts().nlargest(N).index
-    df_filtered = df[df['Source title'].isin(top_sources)]
+        self.save_plot_as_image(plt, "cumulative_documents_by_year.png")
 
-    # Count the number of documents per source
-    doc_counts = df_filtered['Source title'].value_counts()
+    def plot_documents_by_source(self, df, N=10):
+        """
+        Reads the dataframe of Scopus data and plots a bar chart of documents by source.
 
-    # Convert the series to a DataFrame and display the results
-    doc_counts_df = doc_counts.to_frame().reset_index()
-    doc_counts_df.columns = ['Source Title', 'Number of Documents']
-    print(doc_counts_df)
+        Args:
+        df (pandas.DataFrame): DataFrame of the Scopus data.
+        N (int): The number of sources to display.
 
-    # Plot the data using a bar chart
-    sns.set_style("whitegrid")  # Set the seaborn style to "whitegrid" for easier viewing
+        Returns:
+        None
+        """
 
-    plt.figure(figsize=(10, 6))  # Set the figure size
+        # Filter to include only the top N sources based on document count
+        top_sources = df["publicationName"].value_counts().nlargest(N).index
+        df_filtered = df[df["publicationName"].isin(top_sources)]
 
-    barplot = sns.barplot(y=doc_counts.index, x=doc_counts.values, palette="Blues_r", orient='h')
+        # Count the number of documents per source
+        doc_counts = df_filtered["publicationName"].value_counts()
 
-    for i, val in enumerate(doc_counts.values):
-        barplot.text(val + 1, i, val, va='center')
+        # Convert the series to a DataFrame and display the results
+        doc_counts_df = doc_counts.to_frame().reset_index()
+        doc_counts_df.columns = ["publicationName", "Number of Documents"]
 
-    plt.title('Documents by Source')
-    plt.xlabel('Number of Documents')
-    plt.ylabel('Source')
+        # Plot the data using a bar chart
+        sns.set_style(
+            "whitegrid"
+        )  # Set the seaborn style to "whitegrid" for easier viewing
 
-    plt.tight_layout()
+        plt.figure(figsize=(10, 6))  # Set the figure size
 
-    # Save the figure to a PNG file
-    save_plot_as_image(plt, 'documents_by_source.png')
+        barplot = sns.barplot(
+            y=doc_counts.index, x=doc_counts.values, palette="Blues_r", orient="h"
+        )
 
-    # plt.show()
+        for i, val in enumerate(doc_counts.values):
+            barplot.text(val + 1, i, val, va="center")
 
+        plt.title("Documents by Source")
+        plt.xlabel("Number of Documents")
+        plt.ylabel("Source")
 
-def plot_documents_by_year_and_source(df):
-    """
-    Reads the dataframe of a Scopus CSV file and plots a stacked area chart of documents by year and source.
+        plt.tight_layout()
 
-    Args:
-    df (pandas.DataFrame): DataFrame of the Scopus data.
+        # Save the figure to a PNG file
+        # self.save_plot_as_image(plt, 'documents_by_source.png')
 
-    Returns:
-    None
-    """
+        self.save_plot_as_image(plt, "documents_by_source.png")
 
-    # Filter to include only the top 10 sources based on document count
-    top_sources = df['Source title'].value_counts().nlargest(10).index
-    df_filtered = df[df['Source title'].isin(top_sources)]
+    def plot_documents_by_year_and_source(self, df, N=10):
+        """
+        Reads the dataframe of a Scopus CSV file and plots a stacked area chart of documents by year and source.
 
-    # Count the number of documents per year and source
-    doc_counts = df_filtered.groupby(['Year', 'Source title']).size().unstack(fill_value=0)
+        Args:
+        df (pandas.DataFrame): DataFrame of the Scopus data.
+        N (int): The number of sources to display.
 
-    # Reindex the DataFrame to include all years from the earliest to the latest
-    all_years = np.arange(df_filtered['Year'].min(), df_filtered['Year'].max() + 1)
-    doc_counts_reindexed = doc_counts.reindex(all_years, fill_value=0)
+        Returns:
+        None
+        """
 
-    # Plot the data using a stacked area chart
-    sns.set_style("whitegrid")  # Set the seaborn style to "whitegrid" for easier viewing
+        # Create a new column 'Year' by extracting the year from the 'coverDate' column
+        df["Year"] = pd.to_datetime(df["coverDate"]).dt.year
 
-    plt.figure(figsize=(10, 6))  # Set the figure size
+        # Filter to include only the top 10 sources based on document count
+        top_sources = df["publicationName"].value_counts().nlargest(N).index
+        df_filtered = df[df["publicationName"].isin(top_sources)]
 
-    plt.stackplot(doc_counts_reindexed.index, doc_counts_reindexed.T.values, labels=doc_counts_reindexed.columns,
-                  alpha=0.75)
+        # Count the number of documents per year and source
+        doc_counts = (
+            df_filtered.groupby(["Year", "publicationName"])
+            .size()
+            .unstack(fill_value=0)
+        )
 
-    plt.title('Documents by Year and Source')
-    plt.xlabel('Year')
-    plt.ylabel('Number of Documents')
-    plt.legend(loc='upper left')
+        # Reindex the DataFrame to include all years from the earliest to the latest
+        all_years = np.arange(df_filtered["Year"].min(), df_filtered["Year"].max() + 1)
+        doc_counts_reindexed = doc_counts.reindex(all_years, fill_value=0)
 
-    # Set the x-axis limits to the min and max years
-    plt.xlim(df_filtered['Year'].min(), df_filtered['Year'].max())
+        # Plot the data using a stacked area chart
+        sns.set_style(
+            "whitegrid"
+        )  # Set the seaborn style to "whitegrid" for easier viewing
 
-    # Rotate the labels to prevent overlap
-    plt.xticks(rotation=45)
+        plt.figure(figsize=(10, 6))  # Set the figure size
 
-    # Adjust the plot layout to make sure nothing is cropped
-    plt.tight_layout()
+        plt.stackplot(
+            doc_counts_reindexed.index,
+            doc_counts_reindexed.T.values,
+            labels=doc_counts_reindexed.columns,
+            alpha=0.75,
+        )
 
-    # Save the figure to a PNG file
-    save_plot_as_image(plt, 'documents_by_year_and_source.png')
+        plt.title("Documents by Year and Source")
+        plt.xlabel("Year")
+        plt.ylabel("Number of Documents")
+        plt.legend(loc="upper left")
 
-    # plt.show()
+        # Set the x-axis limits to the min and max years
+        plt.xlim(df_filtered["Year"].min(), df_filtered["Year"].max())
 
+        # Rotate the labels to prevent overlap
+        plt.xticks(rotation=45)
 
-def plot_documents_by_affiliation(df):
-    """
-    Reads the dataframe of a Scopus CSV file and plots a bar chart of documents by affiliation.
+        # Set y-axis label to display as integer
+        plt.gca().yaxis.set_major_formatter(
+            FuncFormatter(lambda y, _: "{:.0f}".format(y))
+        )
 
-    Args:
-    df (pandas.DataFrame): DataFrame of the Scopus data.
+        # Adjust the plot layout to make sure nothing is cropped
+        plt.tight_layout()
 
-    Returns:
-    None
-    """
+        # Save the figure to a PNG file
+        # self.save_plot_as_image(plt, 'documents_by_year_and_source.png')
 
-    # Drop rows where 'Affiliations' is NaN
-    df = df.dropna(subset=['Affiliations'])
+        self.save_plot_as_image(plt, "documents_by_year_and_source.png")
 
-    # Split the 'Affiliations' column into a list of affiliations, then explode the list into separate rows
-    df['Affiliations'] = df['Affiliations'].str.split(';')
-    df = df.explode('Affiliations')
+    def plot_documents_by_affiliation(self, df, N=10):
+        """
+        Reads the dataframe of a Scopus CSV file and plots a bar chart of documents by affiliation.
 
-    # Clean up any extra spaces in the affiliations
-    df['Affiliations'] = df['Affiliations'].str.strip()
+        Args:
+        df (pandas.DataFrame): DataFrame of the Scopus data.
+        N (int): number of affiliations to display
 
-    # Use regular expression to extract the name of the University/Institution
-    df['Affiliations'] = df['Affiliations'].apply(lambda x: re.split(', ', x)[1] if len(re.split(', ', x)) > 1 else x)
+        Returns:
+        None
+        """
 
-    # Filter to include only the top 20 affiliations based on document count
-    top_affiliations = df['Affiliations'].value_counts().nlargest(20).index
-    df_filtered = df[df['Affiliations'].isin(top_affiliations)]
+        # Drop rows where 'affilname' is NaN
+        df = df.dropna(subset=["affilname"]).copy()
 
-    # Count the number of documents per affiliation
-    doc_counts = df_filtered['Affiliations'].value_counts()
+        # Create a unique identifier for each document
+        df["DocumentID"] = df["eid"]
 
-    # Plot the data using a bar chart
-    sns.set_style("whitegrid")  # Set the seaborn style to "whitegrid" for easier viewing
+        # Split the 'affilname' column into a list of affiliations, then explode the list into separate rows
+        df["affilname"] = df["affilname"].str.split(";")
+        df = df.explode("affilname")
 
-    plt.figure(figsize=(10, 6))  # Set the figure size
+        # Clean up any extra spaces in the affiliations
+        df["affilname"] = df["affilname"].str.strip()
 
-    sns.barplot(y=doc_counts.index, x=doc_counts.values, palette="Blues_r", orient='h')
+        # Drop duplicates based on DocumentID and Affiliation
+        df = df.drop_duplicates(subset=["DocumentID", "affilname"])
 
-    plt.title('Documents by Affiliation')
-    plt.xlabel('Number of Documents')
-    plt.ylabel('Affiliation')
+        # Filter to include only the top N affiliations based on document count
+        top_affiliations = df["affilname"].value_counts().nlargest(N).index
+        df_filtered = df[df["affilname"].isin(top_affiliations)]
 
-    plt.tight_layout()
+        # Count the number of documents per affiliation
+        doc_counts = df_filtered["affilname"].value_counts()
 
-    # Save the figure to a PNG file
-    save_plot_as_image(plt, 'documents_by_affiliation.png')
+        # Plot the data using a bar chart
+        sns.set_style(
+            "whitegrid"
+        )  # Set the seaborn style to "whitegrid" for easier viewing
 
-    # plt.show()
+        plt.figure(figsize=(10, 6))  # Set the figure size
 
+        barplot = sns.barplot(
+            y=doc_counts.index, x=doc_counts.values, palette="Blues_r", orient="h"
+        )
 
-def plot_documents_by_country(df):
-    """
-    Reads the dataframe of a Scopus CSV file and plots a bar chart of documents by country.
+        for i, val in enumerate(doc_counts.values):
+            barplot.text(
+                val + 0.1, i, val, va="center"
+            )  # Reduced label position adjustment
 
-    Args:
-    df (pandas.DataFrame): DataFrame of the Scopus data.
+        plt.title("Documents by Affiliation")
+        plt.xlabel("Number of Documents")
+        plt.ylabel("Affiliation")
 
-    Returns:
-    None
-    """
+        plt.tight_layout()
 
-    # Drop rows where 'Affiliations' is NaN
-    df = df.dropna(subset=['Affiliations']).copy()
+        # Save the figure to a PNG file
+        # self.save_plot_as_image(plt, 'documents_by_affiliation.png')
 
-    # Create a unique identifier for each document
-    df['DocumentID'] = df['Authors'] + df['Title'] + df['Year'].astype(str)
+        self.save_plot_as_image(plt, "documents_by_affiliation.png")
 
-    # Split the 'Affiliations' column into a list of affiliations, then explode the list into separate rows
-    df['Affiliations'] = df['Affiliations'].str.split(';')
-    df = df.explode('Affiliations')
+    def plot_documents_by_country(self, df, N=10):
+        """
+        Reads the dataframe of a Scopus CSV file and plots a bar chart of documents by country.
 
-    # Clean up any extra spaces in the affiliations
-    df['Affiliations'] = df['Affiliations'].str.strip()
+        Args:
+        df (pandas.DataFrame): DataFrame of the Scopus data.
+        N (int): number of countries to display
 
-    # Use regular expression to extract the country from the Affiliation
-    df['Country'] = df['Affiliations'].apply(lambda x: re.split(', ', x)[-1])
+        Returns:
+        None
+        """
 
-    # Drop duplicates based on DocumentID and Country
-    df = df.drop_duplicates(subset=['DocumentID', 'Country'])
+        # Drop rows where 'affiliation_country' is NaN
+        df = df.dropna(subset=["affiliation_country"]).copy()
 
-    # Filter to include only the top 20 countries based on document count
-    top_countries = df['Country'].value_counts().nlargest(20).index
-    df_filtered = df[df['Country'].isin(top_countries)]
+        # Create a unique identifier for each document
+        df["DocumentID"] = df["creator"] + df["title"] + df["coverDate"].astype(str)
 
-    # Count the number of documents per country
-    doc_counts = df_filtered['Country'].value_counts()
+        # Split the 'affiliation_country' column into a list of countries, then explode the list into separate rows
+        df["affiliation_country"] = df["affiliation_country"].str.split(";")
+        df = df.explode("affiliation_country")
 
-    # Convert the series to a DataFrame and display the results
-    doc_counts_df = doc_counts.to_frame().reset_index()
-    doc_counts_df.columns = ['Country', 'Number of Documents']
-    print(doc_counts_df)
+        # Clean up any extra spaces in the countries
+        df["affiliation_country"] = df["affiliation_country"].str.strip()
 
-    # Plot the data using a bar chart
-    sns.set_style("whitegrid")  # Set the seaborn style to "whitegrid" for easier viewing
+        # Drop duplicates based on DocumentID and Country
+        df = df.drop_duplicates(subset=["DocumentID", "affiliation_country"])
 
-    plt.figure(figsize=(10, 6))  # Set the figure size
+        # Filter to include only the top N countries based on document count
+        top_countries = df["affiliation_country"].value_counts().nlargest(N).index
+        df_filtered = df[df["affiliation_country"].isin(top_countries)]
 
-    barplot = sns.barplot(y=doc_counts.index, x=doc_counts.values, palette="Blues_r", orient='h')
+        # Count the number of documents per country
+        doc_counts = df_filtered["affiliation_country"].value_counts()
 
-    for i, val in enumerate(doc_counts.values):
-        barplot.text(val + 1, i, val, va='center')
+        # Convert the series to a DataFrame and display the results
+        doc_counts_df = doc_counts.to_frame().reset_index()
+        doc_counts_df.columns = ["Country", "Number of Documents"]
 
-    plt.title('Documents by Country')
-    plt.xlabel('Number of Documents')
-    plt.ylabel('Country')
+        # Plot the data using a bar chart
+        sns.set_style(
+            "whitegrid"
+        )  # Set the seaborn style to "whitegrid" for easier viewing
 
-    plt.tight_layout()
+        plt.figure(figsize=(10, 6))  # Set the figure size
 
-    # Save the figure to a PNG file
-    save_plot_as_image(plt, 'documents_by_country.png')
+        barplot = sns.barplot(
+            y=doc_counts.index, x=doc_counts.values, palette="Blues_r", orient="h"
+        )
 
-    # plt.show()
+        for i, val in enumerate(doc_counts.values):
+            barplot.text(
+                val + 0.1, i, val, va="center"
+            )  # Reduced label position adjustment
 
+        plt.title("Documents by Country")
+        plt.xlabel("Number of Documents")
+        plt.ylabel("Country")
 
-continent_name = {
-    'AF': 'Africa',
-    'AS': 'Asia',
-    'EU': 'Europe',
-    'NA': 'North America',
-    'OC': 'Oceania',
-    'SA': 'South America',
-    'AN': 'Antarctica'
-}
-def country_to_continent(country_name):
-    try:
-        country_alpha2 = pycountry.countries.get(name=country_name).alpha_2
-        continent_code = pc.country_alpha2_to_continent_code(country_alpha2)
-        return continent_name[continent_code]
-    except:
-        return None
-def plot_documents_by_continent(df):
-    """
-    Reads the dataframe of a Scopus CSV file and plots a bar chart of documents by continent.
+        plt.tight_layout()
 
-    Args:
-    df (pandas.DataFrame): DataFrame of the Scopus data.
+        # Save the figure to a PNG file
+        # self.save_plot_as_image(plt, 'documents_by_country.png')
 
-    Returns:
-    None
-    """
+        self.save_plot_as_image(plt, "documents_by_country.png")
 
-    # Drop rows where 'Affiliations' is NaN
-    df = df.dropna(subset=['Affiliations']).copy()
+    def plot_documents_by_continent(self, df):
+        """
+        Reads the dataframe of a Scopus CSV file and plots a bar chart of documents by continent.
 
-    # Create a unique identifier for each document
-    df['DocumentID'] = df['Authors'] + df['Title'] + df['Year'].astype(str)
+        Args:
+        df (pandas.DataFrame): DataFrame of the Scopus data.
 
-    # Split the 'Affiliations' column into a list of affiliations, then explode the list into separate rows
-    df['Affiliations'] = df['Affiliations'].str.split(';')
-    df = df.explode('Affiliations')
+        Returns:
+        None
+        """
 
-    # Clean up any extra spaces in the affiliations
-    df['Affiliations'] = df['Affiliations'].str.strip()
+        # Define the dictionary mapping from continent code to continent name
+        continent_name = {
+            "AF": "Africa",
+            "AS": "Asia",
+            "EU": "Europe",
+            "NA": "North America",
+            "OC": "Oceania",
+            "SA": "South America",
+            "AN": "Antarctica",
+        }
 
-    # Use regular expression to extract the country from the Affiliation
-    df['Country'] = df['Affiliations'].apply(lambda x: re.split(', ', x)[-1])
-    df['Continent'] = df['Country'].apply(country_to_continent)
+        # Drop rows where 'affiliation_country' is NaN
+        df = df.dropna(subset=["affiliation_country"]).copy()
 
-    # Drop duplicates based on DocumentID and Country
-    df = df.drop_duplicates(subset=['DocumentID', 'Continent'])
+        # Create a unique identifier for each document
+        df["DocumentID"] = df["eid"]
 
-    # Count the number of documents per continent
-    doc_counts = df['Continent'].value_counts()
+        # Split the 'affiliation_country' column into a list of countries, then explode the list into separate rows
+        df["affiliation_country"] = df["affiliation_country"].str.split(";")
+        df = df.explode("affiliation_country")
 
-    # Convert the series to a DataFrame and display the results
-    doc_counts_df = doc_counts.to_frame().reset_index()
-    doc_counts_df.columns = ['Continent', 'Number of Documents']
-    print(doc_counts_df)
+        # Clean up any extra spaces in the affiliations
+        df["affiliation_country"] = df["affiliation_country"].str.strip()
 
-    # Plot the data using a bar chart
-    sns.set_style("whitegrid")  # Set the seaborn style to "whitegrid" for easier viewing
+        # Convert from country name to continent name
+        df["Continent"] = df["affiliation_country"].apply(
+            lambda x: continent_name.get(
+                pc.country_alpha2_to_continent_code(
+                    pycountry.countries.get(name=x).alpha_2
+                )
+            )
+            if pycountry.countries.get(name=x)
+            else None
+        )
 
-    plt.figure(figsize=(10, 6))  # Set the figure size
+        # Drop duplicates based on DocumentID and Continent
+        df = df.drop_duplicates(subset=["DocumentID", "Continent"])
 
-    barplot = sns.barplot(y=doc_counts.index, x=doc_counts.values, palette="Blues_r", orient='h')
+        # Count the number of documents per continent
+        doc_counts = df["Continent"].value_counts()
 
-    for i, val in enumerate(doc_counts.values):
-        barplot.text(val + 1, i, val, va='center')
+        # Plot the data using a bar chart
+        sns.set_style(
+            "whitegrid"
+        )  # Set the seaborn style to "whitegrid" for easier viewing
 
-    plt.title('Documents by Continent')
-    plt.xlabel('Number of Documents')
-    plt.ylabel('Continent')
+        plt.figure(figsize=(10, 6))  # Set the figure size
 
-    plt.tight_layout()
+        barplot = sns.barplot(
+            y=doc_counts.index, x=doc_counts.values, palette="Blues_r", orient="h"
+        )
 
-    # Save the figure to a PNG file
-    save_plot_as_image(plt, 'documents_by_continent.png')
+        for i, val in enumerate(doc_counts.values):
+            barplot.text(
+                val + 0.3, i, val, va="center"
+            )  # Reduced label position adjustment
 
-    # plt.show()
+        plt.title("Documents by Continent")
+        plt.xlabel("Number of Documents")
+        plt.ylabel("Continent")
 
+        plt.tight_layout()
 
-def plot_documents_by_type(df):
-    """
-    Reads the dataframe of Scopus CSV file and plots a vertical bar chart of documents by type.
+        # Save the figure to a PNG file
+        # self.save_plot_as_image(plt, 'documents_by_continent.png')
 
-    Args:
-    df (pandas.DataFrame): DataFrame of the Scopus data.
+        self.save_plot_as_image(plt, "documents_by_continent.png")
 
-    Returns:
-    None
-    """
+    def plot_documents_by_type(self, df):
+        """
+        Reads the dataframe of Scopus CSV file and plots a vertical bar chart of documents by type.
 
-    # Count the number of documents per type
-    doc_counts = df['Document Type'].value_counts()
+        Args:
+        df (pandas.DataFrame): DataFrame of the Scopus data.
 
-    # Convert the series to a DataFrame and display the results
-    doc_counts_df = doc_counts.to_frame().reset_index()
-    doc_counts_df.columns = ['Document Type', 'Number of Documents']
-    print(doc_counts_df)
+        Returns:
+        None
+        """
 
-    # Plot the data using a bar chart
-    sns.set_style("whitegrid")  # Set the seaborn style to "whitegrid" for easier viewing
+        # Count the number of documents per type
+        doc_counts = df["subtypeDescription"].value_counts()
 
-    plt.figure(figsize=(10, 6))  # Set the figure size
+        # Convert the series to a DataFrame and display the results
+        doc_counts_df = doc_counts.to_frame().reset_index()
+        doc_counts_df.columns = ["Document Type", "Number of Documents"]
 
-    barplot = sns.barplot(x=doc_counts.values, y=doc_counts.index, palette="Blues_r", orient='h')
+        # Plot the data using a bar chart
+        sns.set_style(
+            "whitegrid"
+        )  # Set the seaborn style to "whitegrid" for easier viewing
 
-    for i, val in enumerate(doc_counts.values):
-        barplot.text(val + 1, i, val, va='center')
+        plt.figure(figsize=(10, 6))  # Set the figure size
 
-    plt.title('Documents by Type')
-    plt.xlabel('Number of Documents')
-    plt.ylabel('Document Type')
+        barplot = sns.barplot(
+            x=doc_counts.values, y=doc_counts.index, palette="Blues_r", orient="h"
+        )
 
-    plt.tight_layout()
+        for i, val in enumerate(doc_counts.values):
+            barplot.text(
+                val + 0.3, i, val, va="center"
+            )  # Reduced label position adjustment
 
-    # Save the figure to a PNG file
-    save_plot_as_image(plt, 'documents_by_type.png')
+        plt.title("Documents by Type")
+        plt.xlabel("Number of Documents")
+        plt.ylabel("Document Type")
 
-    # plt.show()
+        plt.tight_layout()
 
+        # Save the figure to a PNG file
+        # self.save_plot_as_image(plt, 'documents_by_type.png')
 
-def plot_documents_by_author(df):
-    """
-    Reads the dataframe of Scopus CSV file and plots a horizontal bar chart of documents by author.
+        self.save_plot_as_image(plt, "documents_by_type.png")
 
-    Args:
-    df (pandas.DataFrame): DataFrame of the Scopus data.
+    def plot_documents_by_author(self, df, N=10):
+        """
+        Reads the dataframe of Scopus CSV file and plots a horizontal bar chart of documents by author.
 
-    Returns:
-    None
-    """
+        Args:
+        df (pandas.DataFrame): DataFrame of the Scopus data.
+        N (int): number of authors to display
 
-    # Expand the 'Authors' and 'Author(s) ID' columns into multiple columns and stack them into single columns
-    authors = df['Authors'].str.split(', ', expand=True).stack()
-    author_ids = df['Author(s) ID'].str.split(';', expand=True).stack()
+        Returns:
+        None
+        """
 
-    # Remove leading/trailing whitespace
-    authors = authors.str.strip()
-    author_ids = author_ids.str.strip()
+        # Drop rows where 'author_names' or 'author_ids' are NaN
+        df = df.dropna(subset=["author_names", "author_ids"])
 
-    # Combine the author names and IDs into a single Series, removing any empty names or IDs
-    combined = authors + ' [' + author_ids + ']'
-    combined = combined[combined.str.strip() != '[]']
+        # Expand the 'author_names' and 'author_ids' columns into multiple columns and stack them into single columns
+        authors = df["author_names"].str.split(";", expand=True).stack()
+        author_ids = df["author_ids"].str.split(";", expand=True).stack()
 
-    # Filter out entries with no author name or ID available
-    combined = combined[~combined.str.contains(r'\[No author id available\]', na=False)]
-    combined = combined[~combined.str.contains(r'No author name available \[', na=False)]
+        # Remove leading/trailing whitespace
+        authors = authors.str.strip()
+        author_ids = author_ids.str.strip()
 
-    # Create a dictionary with author names as keys and their counts as values
-    author_counts = combined.value_counts().nlargest(20)
-    author_names = author_counts.index.str.extract(r'(.*) \[')[0]  # extract author names from the index
+        # Combine the author names and IDs into a single Series, removing any empty names or IDs
+        combined = authors + " [" + author_ids + "]"
+        combined = combined[combined.str.strip() != "[]"]
 
-    # Plot the data using a bar chart
-    sns.set_style("whitegrid")  # Set the seaborn style to "whitegrid" for easier viewing
+        # Create a dictionary with author names as keys and their counts as values
+        author_counts = combined.value_counts().nlargest(N)
+        author_names = author_counts.index.str.extract(r"(.*) \[")[
+            0
+        ]  # extract author names from the index
 
-    plt.figure(figsize=(10, 6))  # Set the figure size
+        # Plot the data using a bar chart
+        sns.set_style(
+            "whitegrid"
+        )  # Set the seaborn style to "whitegrid" for easier viewing
 
-    sns.barplot(x=author_counts.values, y=author_names, palette="Blues_r", orient='h')
+        plt.figure(figsize=(10, 6))  # Set the figure size
 
-    plt.title('Documents by Author')
-    plt.xlabel('Number of Documents')
-    plt.ylabel('Author')
+        barplot = sns.barplot(
+            x=author_counts.values, y=author_names, palette="Blues_r", orient="h"
+        )
 
-    plt.tight_layout()
+        for i, val in enumerate(author_counts.values):
+            barplot.text(
+                val + 0.1, i, val, va="center"
+            )  # Reduced label position adjustment
 
-    # Save the figure to a PNG file
-    save_plot_as_image(plt, 'documents_by_author.png')
+        plt.title("Documents by Author")
+        plt.xlabel("Number of Documents")
+        plt.ylabel("Author")
 
-    # plt.show()
+        plt.tight_layout()
 
+        # Save the figure to a PNG file
+        # self.save_plot_as_image(plt, 'documents_by_author.png')
 
-def plot_abstracts_wordcloud(df):
-    """
-    Reads the dataframe of Scopus CSV file and generates a high-resolution word cloud from the Abstract column.
+        self.save_plot_as_image(plt, "documents_by_author.png")
 
-    Args:
-    df (pandas.DataFrame): DataFrame of the Scopus data.
+    def plot_abstracts_wordcloud(self, df):
+        """
+        Reads the dataframe of Scopus CSV file and generates a high-resolution word cloud from the Abstract column.
 
-    Returns:
-    None
-    """
+        Args:
+        df (pandas.DataFrame): DataFrame of the Scopus data.
 
-    # Drop rows where 'Abstract' is NaN
-    df = df.dropna(subset=['Abstract'])
+        Returns:
+        None
+        """
 
-    # Join all abstracts into a single string
-    text = ' '.join(df['Abstract'])
+        # Drop rows where 'description' is NaN
+        df = df.dropna(subset=["description"])
 
-    # Create the word cloud with higher resolution
-    wordcloud = WordCloud(max_font_size=50, max_words=100, background_color="white", width=800, height=800).generate(
-        text)
+        # Join all abstracts into a single string
+        text = " ".join(df["description"])
 
-    # Display the generated image
-    plt.figure(figsize=[10,5])
-    plt.imshow(wordcloud, interpolation='bilinear')
-    plt.axis("off")
+        # Create the word cloud with higher resolution
+        wordcloud = WordCloud(
+            max_font_size=50,
+            max_words=100,
+            background_color="white",
+            width=800,
+            height=800,
+        ).generate(text)
 
-    # Save the figure to a PNG file
-    save_plot_as_image(plt, 'abstracts_wordcloud.png')
+        # Display the generated image
+        plt.figure(figsize=[10, 5])
+        plt.imshow(wordcloud, interpolation="bilinear")
+        plt.axis("off")
 
-    # plt.show()
+        # Save the figure to a PNG file
+        # self.save_plot_as_image(plt, 'abstracts_wordcloud.png')
 
+        self.save_plot_as_image(plt, "abstracts_wordcloud.png")
 
-def plot_titles_wordcloud(df):
-    """
-    Reads the dataframe of a Scopus CSV file and generates a high-resolution word cloud from the Title column.
+    def plot_titles_wordcloud(self, df):
+        """
+        Reads the dataframe of a Scopus CSV file and generates a high-resolution word cloud from the Title column.
 
-    Args:
-    df (pandas.DataFrame): DataFrame of the Scopus data.
+        Args:
+        df (pandas.DataFrame): DataFrame of the Scopus data.
 
-    Returns:
-    None
-    """
+        Returns:
+        None
+        """
 
-    # Drop rows where 'Title' is NaN
-    df = df.dropna(subset=['Title'])
+        # Drop rows where 'Title' is NaN
+        df = df.dropna(subset=["title"])
 
-    # Join all titles into a single string
-    text = ' '.join(df['Title'])
+        # Join all titles into a single string
+        text = " ".join(df["title"])
 
-    # Create the word cloud with higher resolution
-    wordcloud = WordCloud(max_font_size=50, max_words=100, background_color="white", width=400, height=400).generate(
-        text)
+        # Create the word cloud with higher resolution
+        wordcloud = WordCloud(
+            max_font_size=50,
+            max_words=100,
+            background_color="white",
+            width=400,
+            height=400,
+        ).generate(text)
 
-    # Display the generated image
-    plt.figure(figsize=[10,5])
-    plt.imshow(wordcloud, interpolation='bilinear')
-    plt.axis("off")
+        # Display the generated image
+        plt.figure(figsize=[10, 5])
+        plt.imshow(wordcloud, interpolation="bilinear")
+        plt.axis("off")
 
-    # Save the figure to a PNG file
-    save_plot_as_image(plt, 'titles_wordcloud.png')
+        # Save the figure to a PNG file
+        self.save_plot_as_image(plt, "titles_wordcloud.png")
 
-    # plt.show()
+    def plot_top_cited_documents(self, df, N=10):
+        """
+        Reads the dataframe of a Scopus CSV file and generates a bar chart of the top N cited documents. It also prints a
+        DataFrame of these documents with their titles and other important metadata.
 
+        Args:
+        df (pandas.DataFrame): DataFrame of the Scopus data.
+        N (int): The number of top-cited documents to display.
 
-def plot_index_keywords_wordcloud(df):
-    """
-    Reads the dataframe of Scopus CSV file and generates a high-resolution word cloud from the Index Keywords column.
+        Returns:
+        None
+        """
 
-    Args:
-    df (pandas.DataFrame): DataFrame of the Scopus data.
+        df["coverDate"] = pd.to_datetime(df["coverDate"])
 
-    Returns:
-    None
-    """
+        # Extract the year and create a new 'Year' column
+        df["Year"] = df["coverDate"].dt.year
 
-    # Drop rows where 'Index Keywords' is NaN
-    df = df.dropna(subset=['Index Keywords'])
+        # Fill NA values in 'Cited by' with 0
+        df["Cited by"] = df["citedby_count"].fillna(0)
 
-    # Split the 'Index Keywords' column into a list of keywords, then join them into a single string
-    df['Index Keywords'] = df['Index Keywords'].str.split(';')
-    text = ' '.join([' '.join(keywords) for keywords in df['Index Keywords']])
+        # Sort by 'Cited by' in descending order and take the top N rows
+        df_top_cited = df.sort_values("Cited by", ascending=False).head(N)
 
-    # Create the word cloud with higher resolution
-    wordcloud = WordCloud(max_font_size=50, max_words=100, background_color="white", width=400,
-                          height=400).generate(text)
+        # Create a new column 'Citation Label' for the labels on the x-axis
+        df_top_cited["Citation Label"] = (
+            df_top_cited["author_names"].apply(
+                lambda x: x.split(", ")[0].split(" ")[0] + " et al."
+                if ", " in x
+                else x.split(" ")[0]
+            )
+            + " ("
+            + df_top_cited["Year"].astype(str)
+            + ")"
+        )
 
-    # Display the generated image
-    plt.figure(figsize=[10, 5])
-    plt.imshow(wordcloud, interpolation='bilinear')
-    plt.axis("off")
+        # Display the DataFrame of top-cited documents with their titles and other important metadata
+        # print(df_top_cited[["Citation Label", "Title", "Cited by"]])
 
-    # Save the figure to a PNG file
-    save_plot_as_image(plt, 'index_keywords_wordcloud.png')
+        # Plot the data using a bar chart
+        sns.set_style(
+            "whitegrid"
+        )  # Set the seaborn style to "whitegrid" for easier viewing
+        plt.figure(figsize=(10, 6))  # Set the figure size
 
-    # plt.show()
+        # barplot = sns.barplot(
+        #     x="Citation Label", y="Cited by", data=df_top_cited, palette="Blues_r"
+        # )
 
+        plt.title("Top " + str(N) + " Cited Documents")
+        plt.xlabel("Document")
+        plt.ylabel("Number of Citations")
+        plt.xticks(rotation=45, ha="right")  # Rotate labels and align them with bars
 
-def plot_keyword_comparison(df, keywords):
-    """
-    Reads the dataframe of a Scopus CSV file and counts the number of times each keyword is mentioned in the Titles,
-    Abstracts, and Keywords.
+        plt.tight_layout()
 
-    Args:
-    df (pandas.DataFrame): DataFrame of the Scopus data.
-    keywords (list): A list of keywords to search for.
+        # Save the figure to a PNG file
+        self.save_plot_as_image(plt, "top_cited_documents.png")
 
-    Returns:
-    None
-    """
+        # plt.show()
 
-    # Convert to lowercase for case-insensitive matching
-    df = df.apply(lambda x: x.astype(str).str.lower())
+    # -------------- Below functions are not used in the project --------------
 
-    # Initialize a dictionary to store the counts for each keyword
-    keyword_counts = {keyword: 0 for keyword in keywords}
+    def plot_index_keywords_wordcloud(self, df):
+        """
+        Reads the dataframe of Scopus CSV file and generates a high-resolution word cloud from the Index Keywords column.
 
-    # Iterate through each keyword and count the number of occurrences in the Titles, Abstracts, and Keywords
-    for keyword in keywords:
-        keyword_counts[keyword] += df['Title'].str.contains(keyword).sum()
-        keyword_counts[keyword] += df['Abstract'].str.contains(keyword).sum()
-        keyword_counts[keyword] += df['Index Keywords'].str.contains(keyword).sum()
+        Args:
+        df (pandas.DataFrame): DataFrame of the Scopus data.
 
-    # Convert the dictionary to a pandas Series for easier plotting
-    keyword_counts_series = pd.Series(keyword_counts)
+        Returns:
+        None
+        """
 
-    # Sort the series in descending order
-    keyword_counts_series = keyword_counts_series.sort_values(ascending=False)
+        # Drop rows where 'Index Keywords' is NaN
+        df = df.dropna(subset=["Index Keywords"])
 
-    # Convert the series to a DataFrame and display the results
-    keyword_counts_df = keyword_counts_series.to_frame().reset_index()
-    keyword_counts_df.columns = ['Keyword', 'Number of Occurrences']
-    print(keyword_counts_df)
+        # Split the 'Index Keywords' column into a list of keywords, then join them into a single string
+        df["Index Keywords"] = df["Index Keywords"].str.split(";")
+        text = " ".join([" ".join(keywords) for keywords in df["Index Keywords"]])
 
-    # Plot the data using a bar chart
-    sns.set_style("whitegrid")  # Set the seaborn style to "whitegrid" for easier viewing
-    plt.figure(figsize=(10, 6))  # Set the figure size
+        # Create the word cloud with higher resolution
+        wordcloud = WordCloud(
+            max_font_size=50,
+            max_words=100,
+            background_color="white",
+            width=400,
+            height=400,
+        ).generate(text)
 
-    barplot = sns.barplot(x=keyword_counts_series.values, y=keyword_counts_series.index, palette="Blues_r")
+        # Display the generated image
+        plt.figure(figsize=[10, 5])
+        plt.imshow(wordcloud, interpolation="bilinear")
+        plt.axis("off")
 
-    for i, val in enumerate(keyword_counts_series.values):
-        barplot.text(val + 1, i, val, va='center')
+        # Save the figure to a PNG file
+        self.save_plot_as_image(plt, "index_keywords_wordcloud.png")
 
-    plt.title('Keyword Comparison')
-    plt.xlabel('Number of Occurrences')
-    plt.ylabel('Keyword')
+        # plt.show()
 
-    plt.tight_layout()
+    def plot_keyword_comparison(self, df, keywords):
+        """
+        Reads the dataframe of a Scopus CSV file and counts the number of times each keyword is mentioned in the Titles,
+        Abstracts, and Keywords.
 
-    # Save the figure to a PNG file
-    save_plot_as_image(plt, 'keyword_comparison.png')
+        Args:
+        df (pandas.DataFrame): DataFrame of the Scopus data.
+        keywords (list): A list of keywords to search for.
 
-    # plt.show()
+        Returns:
+        None
+        """
 
+        # Convert to lowercase for case-insensitive matching
+        df = df.apply(lambda x: x.astype(str).str.lower())
 
-def plot_document_keyword_comparison(df, keywords):
-    """
-    Reads the dataframe of Scopus CSV file and counts the number of documents that mention each keyword in the Titles,
-    Abstracts, and Keywords.
+        # Initialize a dictionary to store the counts for each keyword
+        keyword_counts = {keyword: 0 for keyword in keywords}
 
-    Args:
-    df (pandas.DataFrame): DataFrame of the Scopus data.
-    keywords (list): A list of keywords to search for.
+        # Iterate through each keyword and count the number of occurrences in the Titles, Abstracts, and Keywords
+        for keyword in keywords:
+            keyword_counts[keyword] += df["Title"].str.contains(keyword).sum()
+            keyword_counts[keyword] += df["Abstract"].str.contains(keyword).sum()
+            keyword_counts[keyword] += df["Index Keywords"].str.contains(keyword).sum()
 
-    Returns:
-    None
-    """
+        # Convert the dictionary to a pandas Series for easier plotting
+        keyword_counts_series = pd.Series(keyword_counts)
 
-    # Convert to lowercase for case-insensitive matching
-    df = df.apply(lambda x: x.astype(str).str.lower())
+        # Sort the series in descending order
+        keyword_counts_series = keyword_counts_series.sort_values(ascending=False)
 
-    # Initialize a dictionary to store the counts for each keyword
-    keyword_counts = {keyword: 0 for keyword in keywords}
+        # Convert the series to a DataFrame and display the results
+        keyword_counts_df = keyword_counts_series.to_frame().reset_index()
+        keyword_counts_df.columns = ["Keyword", "Number of Occurrences"]
+        print(keyword_counts_df)
 
-    # Iterate through each keyword and count the number of documents that mention it
-    for keyword in keywords:
-        for _, row in df.iterrows():
-            if keyword in row['Title'] or keyword in row['Abstract'] or keyword in row['Index Keywords']:
-                keyword_counts[keyword] += 1
+        # Plot the data using a bar chart
+        sns.set_style(
+            "whitegrid"
+        )  # Set the seaborn style to "whitegrid" for easier viewing
+        plt.figure(figsize=(10, 6))  # Set the figure size
 
-    # Convert the dictionary to a pandas Series for easier plotting
-    keyword_counts_series = pd.Series(keyword_counts)
+        barplot = sns.barplot(
+            x=keyword_counts_series.values,
+            y=keyword_counts_series.index,
+            palette="Blues_r",
+        )
 
-    # Sort the series in descending order
-    keyword_counts_series = keyword_counts_series.sort_values(ascending=False)
+        for i, val in enumerate(keyword_counts_series.values):
+            barplot.text(val + 1, i, val, va="center")
 
-    # Convert the series to a DataFrame and display the results
-    keyword_counts_df = keyword_counts_series.to_frame().reset_index()
-    keyword_counts_df.columns = ['Keyword', 'Number of Documents']
-    print(keyword_counts_df)
+        plt.title("Keyword Comparison")
+        plt.xlabel("Number of Occurrences")
+        plt.ylabel("Keyword")
 
-    # Plot the data using a bar chart
-    sns.set_style("whitegrid")  # Set the seaborn style to "whitegrid" for easier viewing
-    plt.figure(figsize=(10, 6))  # Set the figure size
+        plt.tight_layout()
 
-    barplot = sns.barplot(x=keyword_counts_series.values, y=keyword_counts_series.index, palette="Blues_r")
+        # Save the figure to a PNG file
+        self.save_plot_as_image(plt, "keyword_comparison.png")
 
-    for i, val in enumerate(keyword_counts_series.values):
-        barplot.text(val + 1, i, val, va='center')
+        # plt.show()
 
-    plt.title('Document Keyword Comparison')
-    plt.xlabel('Number of Documents')
-    plt.ylabel('Keyword')
+    def plot_document_keyword_comparison(self, df, keywords):
+        """
+        Reads the dataframe of Scopus CSV file and counts the number of documents that mention each keyword in the Titles,
+        Abstracts, and Keywords.
 
-    plt.tight_layout()
+        Args:
+        df (pandas.DataFrame): DataFrame of the Scopus data.
+        keywords (list): A list of keywords to search for.
 
-    # Save the figure to a PNG file
-    save_plot_as_image(plt, 'document_keyword_comparison.png')
+        Returns:
+        None
+        """
 
-    # plt.show()
+        # Convert to lowercase for case-insensitive matching
+        df = df.apply(lambda x: x.astype(str).str.lower())
 
+        # Initialize a dictionary to store the counts for each keyword
+        keyword_counts = {keyword: 0 for keyword in keywords}
 
-def plot_document_keyword_cooccurrence_matrix(df, keywords):
-    """
-    Reads the dataframe of a Scopus CSV file and generates a co-occurrence matrix for the given keywords. Each cell in
-    the matrix represents the number of documents in which a pair of keywords co-occur either in the Title, Abstract,
-    or Index Keywords fields.
+        # Iterate through each keyword and count the number of documents that mention it
+        for keyword in keywords:
+            for _, row in df.iterrows():
+                if (
+                    keyword in row["Title"]
+                    or keyword in row["Abstract"]
+                    or keyword in row["Index Keywords"]
+                ):
+                    keyword_counts[keyword] += 1
 
-    Args:
-    df (pandas.DataFrame): DataFrame of the Scopus data.
-    keywords (list): A list of keywords to search for.
+        # Convert the dictionary to a pandas Series for easier plotting
+        keyword_counts_series = pd.Series(keyword_counts)
 
-    Returns:
-    None
-    """
+        # Sort the series in descending order
+        keyword_counts_series = keyword_counts_series.sort_values(ascending=False)
 
-    # Convert to lowercase for case-insensitive matching
-    df = df.apply(lambda x: x.astype(str).str.lower())
+        # Convert the series to a DataFrame and display the results
+        keyword_counts_df = keyword_counts_series.to_frame().reset_index()
+        keyword_counts_df.columns = ["Keyword", "Number of Documents"]
+        print(keyword_counts_df)
 
-    # Initialize a DataFrame to store the co-occurrence counts for each keyword pair
-    cooccurrence_df = pd.DataFrame(index=keywords, columns=keywords)
-    cooccurrence_df = cooccurrence_df.fillna(0) # fill initial NaN values with 0
+        # Plot the data using a bar chart
+        sns.set_style(
+            "whitegrid"
+        )  # Set the seaborn style to "whitegrid" for easier viewing
+        plt.figure(figsize=(10, 6))  # Set the figure size
 
-    # Iterate through each pair of keywords and count the number of documents where both appear
-    for keyword1 in keywords:
-        for keyword2 in keywords:
-            if keyword1 != keyword2:  # exclude counting the keyword with itself
-                cooccurrence_count = ((df['Title'].str.contains(keyword1) | df['Abstract'].str.contains(keyword1) | df[
-                    'Index Keywords'].str.contains(keyword1)) &
-                                      (df['Title'].str.contains(keyword2) | df['Abstract'].str.contains(keyword2) | df[
-                                          'Index Keywords'].str.contains(keyword2))).sum()
-                cooccurrence_df.at[keyword1, keyword2] = cooccurrence_count
+        barplot = sns.barplot(
+            x=keyword_counts_series.values,
+            y=keyword_counts_series.index,
+            palette="Blues_r",
+        )
 
-    # Suppress scientific notation
-    pd.set_option('display.float_format', lambda x: '%.0f' % x)
+        for i, val in enumerate(keyword_counts_series.values):
+            barplot.text(val + 1, i, val, va="center")
 
-    # Plot the co-occurrence matrix using a heatmap
-    plt.figure(figsize=(10, 8))  # adjust as needed
-    sns.heatmap(cooccurrence_df, annot=True, fmt='d', cmap="YlGnBu")
+        plt.title("Document Keyword Comparison")
+        plt.xlabel("Number of Documents")
+        plt.ylabel("Keyword")
 
-    plt.title('Keyword Co-occurrence Matrix')
-    plt.xlabel('Keyword')
-    plt.ylabel('Keyword')
-    plt.tight_layout()  # adjusts subplot params so that the subplot fits in to the figure area
+        plt.tight_layout()
 
-    # Save the figure to a PNG file
-    save_plot_as_image(plt, 'documents_keyword_cooccurence_matrix.png')
+        # Save the figure to a PNG file
+        self.save_plot_as_image(plt, "document_keyword_comparison.png")
 
-    # plt.show()
+        # plt.show()
 
-    # Reset float format to default
-    pd.reset_option('display.float_format')
+    def plot_document_keyword_cooccurrence_matrix(self, df, keywords):
+        """
+        Reads the dataframe of a Scopus CSV file and generates a co-occurrence matrix for the given keywords. Each cell in
+        the matrix represents the number of documents in which a pair of keywords co-occur either in the Title, Abstract,
+        or Index Keywords fields.
 
+        Args:
+        df (pandas.DataFrame): DataFrame of the Scopus data.
+        keywords (list): A list of keywords to search for.
 
-def plot_top_cited_documents(df, N):
-    """
-    Reads the dataframe of a Scopus CSV file and generates a bar chart of the top N cited documents. It also prints a
-    DataFrame of these documents with their titles and other important metadata.
+        Returns:
+        None
+        """
 
-    Args:
-    df (pandas.DataFrame): DataFrame of the Scopus data.
-    N (int): The number of top-cited documents to display.
+        # Convert to lowercase for case-insensitive matching
+        df = df.apply(lambda x: x.astype(str).str.lower())
 
-    Returns:
-    None
-    """
+        # Initialize a DataFrame to store the co-occurrence counts for each keyword pair
+        cooccurrence_df = pd.DataFrame(index=keywords, columns=keywords)
+        cooccurrence_df = cooccurrence_df.fillna(0)  # fill initial NaN values with 0
 
-    # Fill NA values in 'Cited by' with 0
-    df['Cited by'] = df['Cited by'].fillna(0)
+        # Iterate through each pair of keywords and count the number of documents where both appear
+        for keyword1 in keywords:
+            for keyword2 in keywords:
+                if keyword1 != keyword2:  # exclude counting the keyword with itself
+                    cooccurrence_count = (
+                        (
+                            df["Title"].str.contains(keyword1)
+                            | df["Abstract"].str.contains(keyword1)
+                            | df["Index Keywords"].str.contains(keyword1)
+                        )
+                        & (
+                            df["Title"].str.contains(keyword2)
+                            | df["Abstract"].str.contains(keyword2)
+                            | df["Index Keywords"].str.contains(keyword2)
+                        )
+                    ).sum()
+                    cooccurrence_df.at[keyword1, keyword2] = cooccurrence_count
 
-    # Sort by 'Cited by' in descending order and take the top N rows
-    df_top_cited = df.sort_values('Cited by', ascending=False).head(N)
+        # Suppress scientific notation
+        pd.set_option("display.float_format", lambda x: "%.0f" % x)
 
-    # Create a new column 'Citation Label' for the labels on the x-axis
-    df_top_cited['Citation Label'] = df_top_cited['Authors'].apply(
-        lambda x: x.split(', ')[0].split(' ')[0] + ' et al.' if ', ' in x else x.split(' ')[0]) + ' (' + df_top_cited[
-                                         'Year'].astype(str) + ')'
+        # Plot the co-occurrence matrix using a heatmap
+        plt.figure(figsize=(10, 8))  # adjust as needed
+        sns.heatmap(cooccurrence_df, annot=True, fmt="d", cmap="YlGnBu")
 
-    # Display the DataFrame of top-cited documents with their titles and other important metadata
-    print(df_top_cited[['Citation Label', 'Title', 'Cited by']])
+        plt.title("Keyword Co-occurrence Matrix")
+        plt.xlabel("Keyword")
+        plt.ylabel("Keyword")
+        plt.tight_layout()  # adjusts subplot params so that the subplot fits in to the figure area
 
-    # Plot the data using a bar chart
-    sns.set_style("whitegrid")  # Set the seaborn style to "whitegrid" for easier viewing
-    plt.figure(figsize=(10, 6))  # Set the figure size
+        # Save the figure to a PNG file
+        self.save_plot_as_image(plt, "documents_keyword_cooccurence_matrix.png")
 
-    barplot = sns.barplot(x='Citation Label', y='Cited by', data=df_top_cited, palette="Blues_r")
+        # plt.show()
 
-    plt.title('Top '+ str(N) + ' Cited Documents')
-    plt.xlabel('Document')
-    plt.ylabel('Number of Citations')
-    plt.xticks(rotation=45, ha="right")  # Rotate labels and align them with bars
+        # Reset float format to default
+        pd.reset_option("display.float_format")
 
-    plt.tight_layout()
+    # def plot_topics_lda(self, df, num_topics):
+    #     """
+    #     Reads the dataframe of a Scopus CSV file and applies LDA topic modeling to the abstracts of the papers. It then
+    #     displays a bar chart showing the number of documents per topic.
 
-    # Save the figure to a PNG file
-    save_plot_as_image(plt, 'top_cited_documents.png')
+    #     Args:
+    #     df (pandas.DataFrame): DataFrame of the Scopus data.
+    #     num_topics (int): The number of topics to extract.
 
-    # plt.show()
+    #     Returns:
+    #     None
+    #     """
 
+    #     # Preprocess the abstracts
+    #     stop_words = set(stopwords.words("english"))
+    #     abstracts = (
+    #         df["Abstract"]
+    #         .fillna("")
+    #         .apply(
+    #             lambda x: [
+    #                 word
+    #                 for word in word_tokenize(x.lower())
+    #                 if word.isalpha() and word not in stop_words
+    #             ]
+    #         )
+    #     )
 
-def plot_topics_lda(df, num_topics):
-    """
-    Reads the dataframe of a Scopus CSV file and applies LDA topic modeling to the abstracts of the papers. It then
-    displays a bar chart showing the number of documents per topic.
+    #     # Create a dictionary representation of the abstracts, and convert to bag-of-words
+    #     dictionary = corpora.Dictionary(abstracts)
+    #     corpus = [dictionary.doc2bow(abstract) for abstract in abstracts]
 
-    Args:
-    df (pandas.DataFrame): DataFrame of the Scopus data.
-    num_topics (int): The number of topics to extract.
+    #     # Apply LDA
+    #     lda_model = gensim.models.LdaModel(
+    #         corpus, num_topics=num_topics, id2word=dictionary, passes=15
+    #     )
 
-    Returns:
-    None
-    """
+    #     # Print the topics
+    #     topics = lda_model.print_topics(num_words=4)
+    #     for topic in topics:
+    #         print(topic)
 
-    # Preprocess the abstracts
-    stop_words = set(stopwords.words('english'))
-    abstracts = df['Abstract'].fillna('').apply(
-        lambda x: [word for word in word_tokenize(x.lower()) if word.isalpha() and word not in stop_words])
+    #     # Assigns the topics to the documents in corpus
+    #     lda_corpus = lda_model[corpus]
 
-    # Create a dictionary representation of the abstracts, and convert to bag-of-words
-    dictionary = corpora.Dictionary(abstracts)
-    corpus = [dictionary.doc2bow(abstract) for abstract in abstracts]
+    #     # Find the dominant topic for each sentence
+    #     dominant_topics = []
+    #     for doc in lda_corpus:
+    #         doc_topics = sorted(doc, key=lambda x: x[1], reverse=True)
+    #         dominant_topic = doc_topics[0][0]
+    #         dominant_topics.append(dominant_topic)
 
-    # Apply LDA
-    lda_model = gensim.models.LdaModel(corpus, num_topics=num_topics, id2word=dictionary, passes=15)
+    #     df["Dominant Topic"] = dominant_topics
 
-    # Print the topics
-    topics = lda_model.print_topics(num_words=4)
-    for topic in topics:
-        print(topic)
+    #     # Prepare the topics for the x-axis labels
+    #     topic_labels = {
+    #         n: ", ".join(re.findall(r'"(.*?)"', t[1])) for n, t in enumerate(topics)
+    #     }
 
-    # Assigns the topics to the documents in corpus
-    lda_corpus = lda_model[corpus]
+    #     # Replace the topic numbers with the topic labels in the DataFrame
+    #     df["Dominant Topic"] = df["Dominant Topic"].map(topic_labels)
 
-    # Find the dominant topic for each sentence
-    dominant_topics = []
-    for doc in lda_corpus:
-        doc_topics = sorted(doc, key = lambda x: x[1], reverse=True)
-        dominant_topic = doc_topics[0][0]
-        dominant_topics.append(dominant_topic)
+    #     # Display the number of documents by dominant topic
+    #     topic_counts = df["Dominant Topic"].value_counts()
 
-    df['Dominant Topic'] = dominant_topics
+    #     plt.figure(figsize=(10, 6))
+    #     topic_counts.plot(kind="bar", color="skyblue")
+    #     plt.title("Number of Abstracts by Dominant Topic")
+    #     plt.xlabel("Topic")
+    #     plt.ylabel("Number of Abstracts")
+    #     plt.xticks(rotation=45, ha="right")
 
-    # Prepare the topics for the x-axis labels
-    topic_labels = {n: ', '.join(re.findall(r'"(.*?)"', t[1])) for n, t in enumerate(topics)}
+    #     # Adjust the plot layout to make sure nothing is cropped
+    #     plt.tight_layout()
 
-    # Replace the topic numbers with the topic labels in the DataFrame
-    df['Dominant Topic'] = df['Dominant Topic'].map(topic_labels)
-
-    # Display the number of documents by dominant topic
-    topic_counts = df['Dominant Topic'].value_counts()
-
-    plt.figure(figsize=(10, 6))
-    topic_counts.plot(kind='bar', color='skyblue')
-    plt.title('Number of Abstracts by Dominant Topic')
-    plt.xlabel('Topic')
-    plt.ylabel('Number of Abstracts')
-    plt.xticks(rotation=45, ha="right")
-
-    # Adjust the plot layout to make sure nothing is cropped
-    plt.tight_layout()
-
-    plt.show()
-
-
-
+    #     plt.show()
