@@ -1,5 +1,15 @@
 # Snowlit
 
+SnowLit is a research literature analysis tool designed to leverage Scopus data for the acquisition, analysis, and visualisation of metadata pertaining to research papers. This tool features forward and backward snowballing search functions, utilising references and citations from the research papers to facilitate the discovery of supplementary scholarly work. The efficiency and depth of SnowLit make it a robust solution for research literature analysis.
+
+
+In essence, this package offers four main features:
+
+ - **Metadata Extraction**: SnowLit enables the extraction of metadata from scientific documents available in Scopus, systematically aggregating the data into a .csv file.
+ - **Data Visualisation**: Beyond simple metadata acquisition, SnowLit automatically generates a series of graphical visualisations that offer in-depth insights. These visualisations, which are provided both as individual .png files and collectively within a .ppt file, cover aspects such as the number of papers per year, papers categorised by source, type, affiliation, country, continents, and author. Additionally, it provides visual representations of the top cited papers, as well as word clouds for titles and abstracts.
+ - **Backward Snowballing**: SnowLit allows for the compilation and extraction of metadata from the references of a given research paper, delivering the results in a .csv file for further investigation and use.
+ - **Forward Snowballing**: Similarly, it provides a function for forward snowballing, allowing for the aggregation and extraction of metadata from the citations of a research paper, with the data conveniently formatted in a .csv file.
+
 ## Getting Started
 
 These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
