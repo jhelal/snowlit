@@ -32,7 +32,7 @@ class SnowLit:
             )
 
             if delete_existing_assets:
-                delete_all_in_dir(log.results_directory)
+                delete_all_in_dir(log.get_results_directory())
 
         else:
             # The query does not exist, so we create a new directory and a new row in the DataFrame
@@ -43,7 +43,7 @@ class SnowLit:
             log = self.log_service.add_new_search_log(self.query, query_name)
 
         # Create a new directory for the plots
-        (log.results_directory / "plots").mkdir(parents=True, exist_ok=True)
+        (log.get_results_directory() / "plots").mkdir(parents=True, exist_ok=True)
 
         return log
 

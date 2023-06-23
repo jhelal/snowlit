@@ -542,7 +542,7 @@ def main():
     for id in ids:
         log = log_service.get_log(id)
         if not log:
-            print(f"\nNo query with id {id} found.")
+            print(f"\nNo query result found with id {id} found.")
             return
 
         if log.id == base_id:
