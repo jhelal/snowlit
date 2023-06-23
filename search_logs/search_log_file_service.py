@@ -1,30 +1,18 @@
+import csv
 from datetime import datetime
-import pandas as pd
 from search_logs.search_log_model import SearchLog
 from utils import RESULTS_LOG_FILE_PATH, SEARCH_RESULTS_DIR, QueryStatus
 
 
 class SearchLogFileService:
-    """
-    This class is responsible for managing the search logs file.
-
-    Methods
-    -------
-    calculate_mean(data)
-        Calculate the mean of a list of numbers.
-    calculate_median(data)
-        Calculate the median of a list of numbers.
-    """
-
-    _logs_df = None
-    _logs_dict = None
+    logs: list[SearchLog] = []
 
     def __init__(self) -> None:
         # Make sure the results directory exists
         SEARCH_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
         # Make sure the logs file exists
-        self._make_logs_file()
+        self.save_logs_to_file()
 
         # load the logs from the file
         self.load_logs()
@@ -43,25 +31,18 @@ class SearchLogFileService:
         :param cache: if True, the logs will be cached in the service
         :param cache: bool
         """
-        if self._logs_df is not None and cache:
+        if self.logs and cache:
             return
 
-        self._logs_df = pd.read_csv(RESULTS_LOG_FILE_PATH)
+        with open(RESULTS_LOG_FILE_PATH, "r") as f:
+            reader = csv.DictReader(f)
 
-    def get_all_logs(self, cache: bool = True) -> list[SearchLog]:
-        """
-        Get all the search logs in the form of a list of SearchLog objects
+            self.logs = []
+            for _log in reader:
+                log = SearchLog.from_dict(_log)
+                self.logs.append(log)
 
-        :param cache: if True, the logs will be cached in the service
-        :param cache: bool
-
-        :return: list of SearchLog objects
-        :rtype: list[SearchLog]
-        """
-        # make sure the logs are loaded
-        self.load_logs(cache=cache)
-
-        return self._logs_df.apply(SearchLog.from_df_row, axis=1).tolist()
+        self.logs.sort(key=lambda x: x.id)
 
     def get_log(self, id: int) -> SearchLog:
         """
@@ -73,7 +54,6 @@ class SearchLogFileService:
         :return: the search log
         :rtype: SearchLog
 
-        :raises ValueError: if the log does not exist
 
         """
         return self._get_log_by("id", id)
@@ -92,12 +72,9 @@ class SearchLogFileService:
         :rtype: SearchLog
 
         """
-        result = self._logs_df.loc[self._logs_df[key] == value]
-        if result.empty:
-            return None
-            # raise ValueError(f"Search log with {key} {value} does not exist")
-
-        return SearchLog.from_df_row(result.iloc[0])
+        for log in self.logs:
+            if getattr(log, key) == value:
+                return log
 
     def get_log_by_query(self, query: str) -> SearchLog:
         """
@@ -114,26 +91,6 @@ class SearchLogFileService:
         """
 
         return self._get_log_by("query", query)
-
-    def _make_logs_file(self) -> None:
-        """
-        Create the empty logs file with CSV headers if it does not exist
-        """
-        if RESULTS_LOG_FILE_PATH.exists():
-            return
-
-        self._logs_df = pd.DataFrame(
-            columns=[
-                "id",
-                "query_name",
-                "query",
-                "results_directory",
-                "last_run_timestamp",
-                "status",
-            ],
-        )
-
-        self.save_logs_to_file()
 
     def add_new_search_log(self, query, query_name) -> SearchLog:
         """
@@ -162,7 +119,7 @@ class SearchLogFileService:
             last_run_timestamp=datetime.now(),
         )
 
-        self.logs_df = self._logs_df.append(search_log.to_dict(), ignore_index=True)
+        self.logs.append(search_log)
         self.save_logs_to_file()
         return search_log
 
@@ -170,8 +127,18 @@ class SearchLogFileService:
         """
         Save the logs to the file
         """
-        self._logs_df.to_csv(RESULTS_LOG_FILE_PATH, index=False)
-        self.reload_logs()
+
+        with open(RESULTS_LOG_FILE_PATH, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=SearchLog.KEYS)
+
+            # Write the header
+            writer.writeheader()
+
+            # Write the data
+            for log in self.logs:
+                writer.writerow(log.to_dict())
+
+        # self.reload_logs()
 
     def update_query_status(self, search_id: int, status: QueryStatus) -> None:
         """
@@ -183,12 +150,15 @@ class SearchLogFileService:
         :param status: the new status
         :param status: str
         """
-        predicate = self._logs_df["id"] == search_id
+        log = self.get_log(search_id)
 
-        self._logs_df.loc[predicate, "status"] = status.value
-        self._logs_df.loc[predicate, "last_run_timestamp"] = datetime.now()
+        log.status = status.value
+        log.last_run_timestamp = datetime.now()
 
         self.save_logs_to_file()
 
     def get_next_id(self):
-        return len(self._logs_df) + 1
+        if not self.logs:
+            return 1
+
+        return self.logs[-1].id + 1
