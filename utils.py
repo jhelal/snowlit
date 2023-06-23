@@ -1,3 +1,4 @@
+from enum import Enum
 from pathlib import Path
 
 # Constants
@@ -8,9 +9,15 @@ SEARCH_RESULTS_DIR = Path("search_results")
 RESULTS_LOG_FILE_PATH = SEARCH_RESULTS_DIR / "results_log.csv"
 
 
-CSV_RESULTS_DIR = SEARCH_RESULTS_DIR / "csv"
+# Enums
+class QueryStatus(Enum):
+    NEW = "New"
+    RUNNING = "Running"
+    COMPLETED = "Completed"
+    FAILED = "Failed"
 
 
+# Helper functions
 def take_input_as_bool(prompt: str) -> bool:
     """
     Take user input as a boolean value.

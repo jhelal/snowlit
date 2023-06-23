@@ -1,69 +1,38 @@
-from datetime import datetime
-from enum import Enum
-from pathlib import Path
 from pybliometrics.scopus import utils
+from search_logs.search_log_file_service import SearchLogFileService
 from scopus import search, backward_snowballing, forward_snowballing
 
 
 from plots import Plotter
 from ppt_generation import generate_ppt_from_plots
 import pandas as pd
-from utils import (
-    RESULTS_LOG_FILE_PATH,
-    SEARCH_RESULTS_DIR,
-    delete_all_in_dir,
-    take_input_as_bool,
-)
-
-
-class QueryStatus(Enum):
-    NEW = "New"
-    RUNNING = "Running"
-    COMPLETED = "Completed"
-    FAILED = "Failed"
+from utils import QueryStatus, delete_all_in_dir, take_input_as_bool
 
 
 class SnowLit:
     def __init__(self, query: str, **options) -> None:
         self.query: str = query
 
-        SEARCH_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        # Initialize the SearchLogManager
+        self.log_service: SearchLogFileService = SearchLogFileService()
 
-        self.log: pd.DataFrame = self.get_log()
-        self.init_query()
+        # Initialize the query
+        self.log = self.init_query()
 
+        # Run the query
         self.run_query(**options)
 
-    def get_log(self):
-        if not RESULTS_LOG_FILE_PATH.exists():
-            self.log = pd.DataFrame(
-                columns=[
-                    "id",
-                    "query_name",
-                    "query",
-                    "results_directory",
-                    "last_run_timestamp",
-                    "status",
-                ]
-            )
-            self.save_log()
-
-        return pd.read_csv(RESULTS_LOG_FILE_PATH)
-
-    def save_log(self):
-        self.log.to_csv(RESULTS_LOG_FILE_PATH, index=False)
-
     def init_query(self):
-        existing_row = self.log[self.log["query"] == self.query]
-        if not existing_row.empty:
-            # The query exists in the DataFrame, return the row
-            self.results_dir = Path(existing_row["results_directory"].values[0])
-            force = take_input_as_bool(
+        log = self.log_service.get_log_by_query(self.query)
+
+        if log:
+            # The query exists in the data source
+            delete_existing_assets = take_input_as_bool(
                 "\nQuery Results already exists, do you want regenerate all assets? (y/n): "
             )
 
-            if force:
-                delete_all_in_dir(self.results_dir)
+            if delete_existing_assets:
+                delete_all_in_dir(log.results_directory)
 
         else:
             # The query does not exist, so we create a new directory and a new row in the DataFrame
@@ -71,34 +40,12 @@ class SnowLit:
                 "\nEnter a name for your query (this will be used in results directory name): "
             ).strip()
 
-            query_id = len(self.log) + 1
-
-            # Create a new directory for the results
-            self.results_dir = SEARCH_RESULTS_DIR / f"{query_id}_{query_name}"
-            self.results_dir.mkdir(parents=True, exist_ok=True)
-
-            new_row = {
-                "id": query_id,  # Assigning the next available ID
-                "query_name": query_name,
-                "query": self.query,
-                "results_directory": self.results_dir.absolute(),
-                "last_run_timestamp": datetime.now(),
-                "status": QueryStatus.NEW,  # Status is set as 'New' for a new query
-            }
-
-            self.log = self.log.append(new_row, ignore_index=True)
-            self.save_log()
+            log = self.log_service.add_new_search_log(self.query, query_name)
 
         # Create a new directory for the plots
-        (self.results_dir / "plots").mkdir(parents=True, exist_ok=True)
+        (log.results_directory / "plots").mkdir(parents=True, exist_ok=True)
 
-    def update_status(self, status):
-        self.log.loc[self.log["query"] == self.query, "status"] = status
-        self.log.loc[
-            self.log["query"] == self.query, "last_run_timestamp"
-        ] = datetime.now()
-
-        self.save_log()
+        return log
 
     def run_query(
         self,
@@ -120,9 +67,9 @@ class SnowLit:
 
         """
 
-        self.update_status(QueryStatus.RUNNING)
+        self.log_service.update_query_status(self.log.id, QueryStatus.RUNNING)
 
-        csv_dir = self.results_dir / "csv"
+        csv_dir = self.log.results_directory / "csv"
         csv_dir.mkdir(parents=True, exist_ok=True)
 
         results_path = csv_dir / "scopus_results.csv"
@@ -146,7 +93,7 @@ class SnowLit:
             self.generate_plots(df)
 
             # Generate PowerPoint presentation
-            generate_ppt_from_plots(self.results_dir)
+            generate_ppt_from_plots(self.log.results_directory)
 
         if forward_snowball:
             print("\n\nPerforming forward snowballing...")
@@ -170,10 +117,10 @@ class SnowLit:
             else:
                 print("Backward snowballing results already exist, skipping...")
 
-        self.update_status(QueryStatus.COMPLETED)
+        self.log_service.update_query_status(self.log.id, QueryStatus.COMPLETED)
 
     def generate_plots(self, df):
-        plotter = Plotter(self.results_dir)
+        plotter = Plotter(self.log.results_directory)
         plotter.plot_total_documents(df)
         plotter.plot_documents_by_year(df)
         plotter.plot_cumulative_documents_by_year(df)

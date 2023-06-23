@@ -64,6 +64,31 @@ def generate_ppt_from_plots(results_dir: Path):
         key=os.path.getctime,
     )
 
+    # Add a slide with your specific layout
+    slide_layout = prs.slide_layouts[
+        5
+    ]  # Assume a layout that contains a text box or placeholder
+    slide = prs.slides.add_slide(slide_layout)
+
+    # Get the title placeholder
+    title_placeholder = slide.shapes.title
+
+    # Name the title Search Query
+    title_text = "Search Query"
+    title_placeholder.text = title_text
+
+    # Access the text placeholder to enter search querry
+    text_box = slide.shapes.placeholders[1]  # Index may vary depending on layout
+    text_frame = text_box.text_frame
+
+    # Clear any existing text in the placeholder
+    text_frame.clear()
+    text_content = "LCA search bla bla"
+
+    # Add and format the new text
+    p = text_frame.add_paragraph()
+    p.text = text_content
+
     # Loop over each file in the sorted list
     for full_path in files:
         add_image_slide(prs, full_path)  # add slide with the image
