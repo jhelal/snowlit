@@ -12,10 +12,16 @@ class SearchLogFileService:
         SEARCH_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
         # Make sure the logs file exists
-        self.save_logs_to_file()
+        self._make_empty_log_file()
 
         # load the logs from the file
         self.load_logs()
+
+    def _make_empty_log_file(self) -> None:
+        if RESULTS_LOG_FILE_PATH.exists():
+            return
+
+        RESULTS_LOG_FILE_PATH.touch()
 
     def reload_logs(self) -> None:
         """
