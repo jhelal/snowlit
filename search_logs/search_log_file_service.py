@@ -114,13 +114,11 @@ class SearchLogFileService:
 
         Note: log will not be checked for duplicates, the search log id will be updated to the next available id
         """
-        id = self.get_next_id()
 
         search_log = SearchLog(
-            id=id,
+            id=self.get_next_id(),
             query=query,
             query_name=query_name,
-            results_directory=SEARCH_RESULTS_DIR / f"{id}_{query_name}",
             status=QueryStatus.NEW,
             last_run_timestamp=datetime.now(),
         )

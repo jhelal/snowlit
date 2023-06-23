@@ -69,12 +69,9 @@ class SnowLit:
 
         self.log_service.update_query_status(self.log.id, QueryStatus.RUNNING)
 
-        csv_dir = self.log.results_directory / "csv"
-        csv_dir.mkdir(parents=True, exist_ok=True)
-
-        results_path = csv_dir / "scopus_results.csv"
-        forward_snowball_path = csv_dir / "forward_snowball_results.csv"
-        backward_snowball_path = csv_dir / "backward_snowball_results.csv"
+        results_path = self.log.get_results_file_path()
+        forward_snowball_path = self.log.get_forward_snowball_results_file_path()
+        backward_snowball_path = self.log.get_backward_snowball_results_file_path()
 
         print("\nPerforming query search...")
         if not results_path.exists():
@@ -93,7 +90,7 @@ class SnowLit:
             self.generate_plots(df)
 
             # Generate PowerPoint presentation
-            generate_ppt_from_plots(self.log.results_directory)
+            generate_ppt_from_plots(self.log.get_results_directory())
 
         if forward_snowball:
             print("\n\nPerforming forward snowballing...")
@@ -120,7 +117,7 @@ class SnowLit:
         self.log_service.update_query_status(self.log.id, QueryStatus.COMPLETED)
 
     def generate_plots(self, df):
-        plotter = Plotter(self.log.results_directory)
+        plotter = Plotter(self.log.get_results_directory())
         plotter.plot_total_documents(df)
         plotter.plot_documents_by_year(df)
         plotter.plot_cumulative_documents_by_year(df)
