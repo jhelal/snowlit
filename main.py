@@ -90,7 +90,7 @@ class SnowLit:
             self.generate_plots(df)
 
             # Generate PowerPoint presentation
-            generate_ppt_from_plots(self.log.get_results_directory())
+            generate_ppt_from_plots(self.query, self.log.get_results_directory())
 
         if forward_snowball:
             print("\n\nPerforming forward snowballing...")

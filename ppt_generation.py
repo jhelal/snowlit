@@ -45,7 +45,7 @@ def add_image_slide(prs, img_path):
     image.top = top + Inches(0.5)
 
 
-def generate_ppt_from_plots(results_dir: Path):
+def generate_ppt_from_plots(query: str, results_dir: Path):
     pptx_path = results_dir / "snowlit_plots.pptx"
     if pptx_path.exists():
         print("Plots are already exported at", pptx_path, "skipping...")
@@ -83,7 +83,7 @@ def generate_ppt_from_plots(results_dir: Path):
 
     # Clear any existing text in the placeholder
     text_frame.clear()
-    text_content = "LCA search bla bla"
+    text_content = query
 
     # Add and format the new text
     p = text_frame.add_paragraph()
