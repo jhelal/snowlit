@@ -3,7 +3,7 @@ from pybliometrics.scopus import AbstractRetrieval, ScopusSearch
 
 
 def search(query):
-    s = ScopusSearch(query)
+    s = ScopusSearch(query, verbose=True)
 
     # Get the results as a list of namedtuples
     results = s.results
