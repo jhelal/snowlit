@@ -8,6 +8,8 @@ import pycountry_convert as pc
 import pycountry
 from wordcloud import WordCloud
 
+from utils import save_plot_as_image
+
 
 class Plotter:
     def __init__(self, results_dir: Path) -> None:
@@ -18,16 +20,7 @@ class Plotter:
 
         # Join the directory path and the image name to form the full path
         image_path = self.results_dir / "plots" / image_name
-        if image_path.exists():
-            return
-
-        # Save the plot as an image at the unique path
-        plt.savefig(image_path.absolute(), dpi=600)
-
-        # Close the plot to free up memory
-        plt.close()
-
-        print("plot generated at: ", image_path)
+        save_plot_as_image(plt, image_path)
 
     def plot_total_documents(self, df):
         """
