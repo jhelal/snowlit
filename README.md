@@ -1,4 +1,4 @@
-# Snowlit
+# SnowLit
 
 SnowLit is a research literature analysis tool designed to leverage Scopus data for the acquisition, analysis, and visualisation of metadata pertaining to research papers. This tool features forward and backward snowballing search functions, utilising references and citations from the research papers to facilitate the discovery of supplementary scholarly work. The efficiency and depth of SnowLit make it a robust solution for research literature analysis.
 
