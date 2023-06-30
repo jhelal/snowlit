@@ -1,4 +1,8 @@
-# SnowLit
+<p align="center">
+ <img src="https://github.com/jhelal/snowlit/assets/34221831/1c3ff7c9-25d7-41f0-8a0e-fa78e43a5f5b" width = "400" height="262">
+</p>
+
+# 
 
 SnowLit is a research literature analysis tool designed to leverage Scopus data for the acquisition, analysis, and visualisation of metadata pertaining to research papers. This tool features forward and backward snowballing search functions, utilising references and citations from the research papers to facilitate the discovery of supplementary scholarly work. The efficiency and depth of SnowLit make it a robust solution for research literature analysis.
 
